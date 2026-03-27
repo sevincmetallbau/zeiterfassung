@@ -1679,9 +1679,10 @@ function baueTagesMap(stamps) {
   const map = {};
   stamps.forEach(function(s) {
     if (!map[s.datum]) map[s.datum] = {};
-    if (!map[s.datum][s.mitarbeiter]) map[s.datum][s.mitarbeiter] = { beginn: null, ende: null };
+    if (!map[s.datum][s.mitarbeiter]) map[s.datum][s.mitarbeiter] = { beginn: null, ende: null, manuell: false };
     if (s.typ === 'beginn') map[s.datum][s.mitarbeiter].beginn = s.zeit.substring(0, 5);
     if (s.typ === 'ende')   map[s.datum][s.mitarbeiter].ende   = s.zeit.substring(0, 5);
+    if (s.manuell)          map[s.datum][s.mitarbeiter].manuell = true;
   });
   return map;
 }
@@ -1832,6 +1833,7 @@ async function ladeDetail() {
         const eintrag = tagesMap[d] && tagesMap[d][ma.name];
         const beginn  = eintrag ? eintrag.beginn : null;
         const ende    = eintrag ? eintrag.ende   : null;
+        const manuell = eintrag ? eintrag.manuell : false;
 
         // Zukünftige Tage ohne Eintrag überspringen
         if (!eintrag && d > heuteDatum()) return;
@@ -1852,7 +1854,8 @@ async function ladeDetail() {
           beginn,
           ende,
           netto,
-          unvoll
+          unvoll,
+          manuell
         });
       });
     }
@@ -1875,8 +1878,9 @@ async function ladeDetail() {
       else if (ueber)  badge = '<span class="badge badge-ueber">&#128992; Überstunden</span>';
       else             badge = '<span class="badge badge-normal">&#10003; Normal</span>';
 
+      const adminBadge = r.manuell ? ' <span title="Manuell eingetragen (Admin)" style="font-size:0.7rem;background:rgba(255,165,0,0.18);color:#ffaa00;border:1px solid rgba(255,165,0,0.4);border-radius:3px;padding:1px 5px;vertical-align:middle">✎ Admin</span>' : '';
       const beginnHTML = r.beginn
-        ? '<span class="' + (spaet ? 'td-rot' : '') + '">' + r.beginn + '</span>'
+        ? '<span class="' + (spaet ? 'td-rot' : '') + '">' + r.beginn + '</span>' + adminBadge
         : '<span style="color:var(--text2)">–</span>';
       const endeHTML = r.ende
         ? r.ende
@@ -1969,7 +1973,8 @@ async function speicherBearbeitung() {
       mitarbeiter: ma,
       typ: 'beginn',
       datum: datumNeu,
-      zeit: beginn + ':00'
+      zeit: beginn + ':00',
+      manuell: true
     }];
     if (ende) {
       inserts.push({
@@ -1977,7 +1982,8 @@ async function speicherBearbeitung() {
         mitarbeiter: ma,
         typ: 'ende',
         datum: datumNeu,
-        zeit: ende + ':00'
+        zeit: ende + ':00',
+        manuell: true
       });
     }
     const { error } = await sb.from('stamps').insert(inserts);
