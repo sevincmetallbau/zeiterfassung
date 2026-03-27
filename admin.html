@@ -1373,17 +1373,11 @@
       </div>
       <div class="form-gruppe">
         <label>Arbeitsbeginn</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="time" id="edit-beginn" class="form-input" style="flex:1">
-          <button type="button" onclick="document.getElementById('edit-beginn').value=jetztZeit()" style="background:var(--accent2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:0.85rem;cursor:pointer;white-space:nowrap">⏱ Jetzt</button>
-        </div>
+        <input type="time" id="edit-beginn" class="form-input">
       </div>
       <div class="form-gruppe">
         <label>Arbeitsende (optional)</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="time" id="edit-ende" class="form-input" style="flex:1">
-          <button type="button" onclick="document.getElementById('edit-ende').value=jetztZeit()" style="background:var(--accent2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:0.85rem;cursor:pointer;white-space:nowrap">⏱ Jetzt</button>
-        </div>
+        <input type="time" id="edit-ende" class="form-input">
       </div>
       <div id="edit-fehler" style="display:none;color:var(--accent);font-size:0.85rem;margin-bottom:10px"></div>
       <button class="btn-speichern" onclick="speicherBearbeitung()" style="width:100%;padding:11px">Speichern</button>
@@ -1972,19 +1966,17 @@ async function speicherBearbeitung() {
 
     // Neue Stamps einfügen
     const inserts = [{
-      id: Date.now(),
       mitarbeiter: ma,
       typ: 'beginn',
       datum: datumNeu,
-      zeit: beginn
+      zeit: beginn + ':00'
     }];
     if (ende) {
       inserts.push({
-        id: Date.now() + 1,
         mitarbeiter: ma,
         typ: 'ende',
         datum: datumNeu,
-        zeit: ende
+        zeit: ende + ':00'
       });
     }
     const { error } = await sb.from('stamps').insert(inserts);
