@@ -1963,7 +1963,9 @@ async function speicherBearbeitung() {
     await sb.from('stamps').delete().eq('mitarbeiter', ma).eq('datum', datumAlt);
 
     // Neue Stamps einfügen
+    const baseId = Date.now();
     const inserts = [{
+      id: baseId,
       mitarbeiter: ma,
       typ: 'beginn',
       datum: datumNeu,
@@ -1971,6 +1973,7 @@ async function speicherBearbeitung() {
     }];
     if (ende) {
       inserts.push({
+        id: baseId + 1,
         mitarbeiter: ma,
         typ: 'ende',
         datum: datumNeu,
