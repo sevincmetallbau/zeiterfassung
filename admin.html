@@ -1679,8 +1679,11 @@ function baueTagesMap(stamps) {
   const map = {};
   stamps.forEach(function(s) {
     if (!map[s.datum]) map[s.datum] = {};
-    if (!map[s.datum][s.mitarbeiter]) map[s.datum][s.mitarbeiter] = { beginn: null, ende: null, manuell: false };
-    if (s.typ === 'beginn') map[s.datum][s.mitarbeiter].beginn = s.zeit.substring(0, 5);
+    if (!map[s.datum][s.mitarbeiter]) map[s.datum][s.mitarbeiter] = { beginn: null, ende: null, manuell: false, fruehAkzeptiert: false };
+    if (s.typ === 'beginn') {
+      map[s.datum][s.mitarbeiter].beginn = s.zeit.substring(0, 5);
+      if (s.frueh_akzeptiert) map[s.datum][s.mitarbeiter].fruehAkzeptiert = true;
+    }
     if (s.typ === 'ende')   map[s.datum][s.mitarbeiter].ende   = s.zeit.substring(0, 5);
     if (s.manuell)          map[s.datum][s.mitarbeiter].manuell = true;
   });
@@ -1723,7 +1726,8 @@ async function ladeMonatsübersicht() {
         if (maEintritt && d < maEintritt) continue;
 
         if (eintrag && eintrag.beginn) {
-          const netto = nettoStunden(eintrag.beginn, eintrag.ende);
+          const effBeginn = (eintrag.beginn < '07:00' && !eintrag.fruehAkzeptiert) ? '07:00' : eintrag.beginn;
+          const netto = nettoStunden(effBeginn, eintrag.ende);
           if (isSa) {
             tageSa++;
             stdSa += netto || 0;
@@ -1834,11 +1838,13 @@ async function ladeDetail() {
         const beginn  = eintrag ? eintrag.beginn : null;
         const ende    = eintrag ? eintrag.ende   : null;
         const manuell = eintrag ? eintrag.manuell : false;
+        const fruehAkzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
+        const effektivBeginn = (beginn && beginn < '07:00' && !fruehAkzeptiert) ? '07:00' : beginn;
 
         // Zukünftige Tage ohne Eintrag überspringen
         if (!eintrag && d > heuteDatum()) return;
 
-        const netto = nettoStunden(beginn, ende);
+        const netto = nettoStunden(effektivBeginn, ende);
         const unvoll = beginn && !ende;
 
         // Filter: nur unvollständige
@@ -1855,7 +1861,9 @@ async function ladeDetail() {
           ende,
           netto,
           unvoll,
-          manuell
+          manuell,
+          fruehAkzeptiert,
+          istFrueh: beginn && beginn < '07:00' && !fruehAkzeptiert
         });
       });
     }
@@ -1879,8 +1887,9 @@ async function ladeDetail() {
       else             badge = '<span class="badge badge-normal">&#10003; Normal</span>';
 
       const adminBadge = r.manuell ? ' <span title="Manuell eingetragen (Admin)" style="font-size:0.7rem;background:rgba(255,165,0,0.18);color:#ffaa00;border:1px solid rgba(255,165,0,0.4);border-radius:3px;padding:1px 5px;vertical-align:middle">✎ Admin</span>' : '';
+      const fruehBadge = r.istFrueh ? ' <span title="Zu früh – zählt erst ab 07:00" style="font-size:0.7rem;background:rgba(100,160,255,0.15);color:#6aa0ff;border:1px solid rgba(100,160,255,0.4);border-radius:3px;padding:1px 5px;vertical-align:middle">⏰ ab 07:00</span>' : '';
       const beginnHTML = r.beginn
-        ? '<span class="' + (spaet ? 'td-rot' : '') + '">' + r.beginn + '</span>' + adminBadge
+        ? '<span class="' + (spaet ? 'td-rot' : '') + '">' + r.beginn + '</span>' + fruehBadge + adminBadge
         : '<span style="color:var(--text2)">–</span>';
       const endeHTML = r.ende
         ? r.ende
@@ -1889,8 +1898,13 @@ async function ladeDetail() {
         ? '<span class="' + (ueber ? 'td-orange' : '') + '">' + formatH(r.netto) + '</span>'
         : '–';
 
-      const aktionen = '<button class="btn-aktion" onclick="oeffneBearbeiten(\'' + r.ma.replace(/'/g,"\\'")+'\',\''+r.datum+'\')">&#9998;</button>'
-          + (r.beginn ? '<button class="btn-aktion del" onclick="loescheEintrag(\'' + r.ma.replace(/'/g,"\\'") + '\',\'' + r.datum + '\')">&#128465;</button>' : '');
+      const maSafe = r.ma.replace(/'/g,"\\'");
+      const akzBtn = r.istFrueh
+        ? '<button class="btn-aktion" style="color:#4caf50;border-color:#4caf50" title="Frühere Zeit akzeptieren – zählt dann vollständig" onclick="akzeptiereFrueh(\'' + maSafe + '\',\'' + r.datum + '\')">✓ Akzept.</button>'
+        : '';
+      const aktionen = akzBtn
+          + '<button class="btn-aktion" onclick="oeffneBearbeiten(\'' + maSafe + '\',\'' + r.datum + '\')">&#9998;</button>'
+          + (r.beginn ? '<button class="btn-aktion del" onclick="loescheEintrag(\'' + maSafe + '\',\'' + r.datum + '\')">&#128465;</button>' : '');
 
       const tr = document.createElement('tr');
       tr.className = trKlasse;
@@ -1928,6 +1942,19 @@ async function loescheEintrag(ma, datum) {
   ladeAlles();
   // Falls Modal offen: auch neu laden
   if (state.aktuellerModalMA === ma) oeffneMAModal(ma);
+}
+
+// ── FRÜHEINSTEMPEL AKZEPTIEREN ──
+
+async function akzeptiereFrueh(ma, datum) {
+  const { error } = await sb.from('stamps')
+    .update({ frueh_akzeptiert: true })
+    .eq('mitarbeiter', ma)
+    .eq('datum', datum)
+    .eq('typ', 'beginn');
+  if (error) { alert('Fehler: ' + error.message); return; }
+  invalidateCache();
+  ladeAlles();
 }
 
 // ── STEMPEL BEARBEITEN ──
