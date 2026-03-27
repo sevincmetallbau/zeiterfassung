@@ -1,0 +1,3029 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin – Sevinc Metallbau Zeiterfassung</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #1a1a2e;
+      --card:   #16213e;
+      --card2:  #0f3460;
+      --accent: #e94560;
+      --green:  #27ae60;
+      --orange: #e67e22;
+      --red:    #c0392b;
+      --blue:   #2980b9;
+      --text:   #eaeaea;
+      --text2:  #a0a0b0;
+      --border: #1e2d50;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+    }
+
+    /* ════════ LOGIN ════════ */
+    #login-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    #login-overlay.versteckt { display: none; }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .login-card h1 {
+      font-size: 1.5rem;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .login-card .sub {
+      color: var(--text2);
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+    }
+    .login-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    .login-input:focus { border-color: var(--accent); }
+    .login-btn {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 13px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: opacity 0.15s;
+    }
+    .login-btn:hover { opacity: 0.85; }
+    .login-fehler {
+      background: #3d1515;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      color: #ff8888;
+      padding: 10px 14px;
+      margin-top: 14px;
+      font-size: 0.9rem;
+    }
+
+    /* ════════ HEADER ════════ */
+    #header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      height: 54px;
+      gap: 10px;
+    }
+    .header-titel {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .monat-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+    }
+    .monat-nav button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .monat-nav button:hover { background: var(--card2); }
+    .monat-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      min-width: 120px;
+      text-align: center;
+    }
+    .abmelden-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      flex: 0 0 auto;
+    }
+    .abmelden-btn:hover { background: var(--red); color: white; border-color: var(--red); }
+
+    /* ════════ HAUPTBEREICH ════════ */
+    #dashboard { padding: 20px; display: none; }
+    #dashboard.aktiv { display: block; }
+
+    /* ════════ QR-CODE SEKTION ════════ */
+    .qr-sektion {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .qr-toggle {
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text);
+      padding: 14px 18px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .qr-toggle:hover { background: var(--card2); }
+    .qr-inhalt {
+      display: none;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .qr-inhalt.offen { display: flex; }
+    #qr-code-el { flex: 0 0 auto; }
+    .qr-info { flex: 1; min-width: 200px; }
+    .qr-url {
+      font-size: 0.85rem;
+      color: var(--text2);
+      word-break: break-all;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 8px;
+    }
+    .qr-kopier-btn {
+      margin-top: 8px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    /* ════════ HEUTE-LEISTE ════════ */
+    .heute-leiste {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .heute-leiste strong { color: var(--text); }
+    .anwesend { color: var(--green); }
+    .fehlt    { color: var(--accent); }
+
+    /* ════════ KARTEN ════════ */
+    .karten-reihe {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .karte {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .karte .karte-wert {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .karte .karte-label {
+      font-size: 0.78rem;
+      color: var(--text2);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .karte.orange .karte-wert { color: var(--orange); }
+    .karte.rot    .karte-wert { color: var(--accent); }
+    .karte.gruen  .karte-wert { color: var(--green); }
+    .karte.blau   .karte-wert { color: var(--blue); }
+
+    /* ════════ TABS ════════ */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 0;
+      border-bottom: 2px solid var(--border);
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text2);
+      padding: 10px 20px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.15s;
+    }
+    .tab-btn.aktiv { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .tab-btn:hover:not(.aktiv) { color: var(--text); }
+
+    .tab-inhalt { display: none; padding-top: 20px; }
+    .tab-inhalt.aktiv { display: block; }
+
+    /* ════════ TABELLEN ════════ */
+    .tabelle-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+    }
+    thead th {
+      background: var(--card2);
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      color: var(--text2);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    tbody tr { border-top: 1px solid var(--border); }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody td { padding: 9px 12px; vertical-align: middle; white-space: nowrap; }
+
+    .td-rot    { color: var(--accent) !important; font-weight: 600; }
+    .td-orange { color: var(--orange) !important; font-weight: 600; }
+    .td-gruen  { color: var(--green) !important; }
+    .td-blau   { color: var(--blue) !important; }
+
+    tr.zeile-samstag { background: rgba(41, 128, 185, 0.07) !important; }
+    tr.zeile-warnung { background: rgba(241, 196, 15, 0.07) !important; }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .badge-normal  { background: rgba(39,174,96,0.15);  color: var(--green); }
+    .badge-spaet   { background: rgba(231,76,60,0.15);   color: #e74c3c; }
+    .badge-ueber   { background: rgba(230,126,34,0.15);  color: var(--orange); }
+    .badge-fehlt   { background: rgba(241,196,15,0.15);  color: #f1c40f; }
+
+    .ma-link {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 1px dashed var(--border);
+    }
+    .ma-link:hover { color: var(--accent); }
+
+    /* ════════ FILTER-ZEILE ════════ */
+    .filter-zeile {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .filter-zeile select,
+    .filter-zeile input {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .filter-zeile select:focus,
+    .filter-zeile input:focus { border-color: var(--accent); }
+
+    /* ════════ MITARBEITER-KARTEN ════════ */
+    .ma-karten-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .ma-karte {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .ma-karte-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+    .ma-karte-datum { font-size: 0.8rem; color: var(--text2); margin-bottom: 6px; }
+    .ma-karte-pin { font-size: 0.8rem; color: var(--text2); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .ma-karte-pin .pin-anzeige { font-family: monospace; background: var(--bg); border-radius: 4px; padding: 2px 8px; letter-spacing: 3px; }
+    .ma-karte-pin .pin-edit-btn { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; cursor: pointer; }
+    .ma-karte-pin .pin-edit-btn:hover { background: var(--accent2); }
+    .ma-karte-aktionen { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ════════ KUNDENZEITEN TAB ════════ */
+    .kz-filter-reihe { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+    .kz-filter-reihe select, .kz-filter-reihe input {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; flex: 1; min-width: 120px;
+    }
+    .kz-tabelle-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px; }
+    .kz-tabelle { width: 100%; border-collapse: collapse; min-width: 750px; }
+    .kz-tabelle th { background: var(--card2); color: var(--text2); padding: 10px 12px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; white-space: nowrap; }
+    .kz-tabelle td { padding: 10px 12px; border-top: 1px solid var(--border); font-size: 0.88rem; vertical-align: top; }
+    .kz-tabelle tr:hover td { background: rgba(255,255,255,0.02); }
+    .kz-tabelle .std-cell { font-weight: 700; color: var(--green); white-space: nowrap; }
+    .kz-tabelle .aktionen-cell { white-space: nowrap; }
+    .kz-btn-verlauf { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer; margin-right: 4px; }
+    .kz-btn-verlauf:hover { background: var(--accent2); }
+    .kz-btn-bearbeiten { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer; margin-right: 4px; }
+    .kz-btn-bearbeiten:hover { background: var(--accent2); }
+    .kz-btn-del { background: none; border: 1px solid rgba(231,76,60,0.3); color: var(--accent); border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer; }
+    .kz-btn-del:hover { background: var(--accent); color: white; }
+    .kz-zusammenfassung { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
+    .kz-kunde-karte { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+    .kz-kunde-karte .kunde-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+    .kz-kunde-karte .kunde-std { font-size: 1.4rem; font-weight: 800; color: var(--green); }
+    .kz-kunde-karte .kunde-info { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+
+    /* Verlauf Modal */
+    .verlauf-liste { max-height: 400px; overflow-y: auto; }
+    .verlauf-eintrag { background: var(--bg); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+    .verlauf-eintrag .verlauf-kopf { font-size: 0.8rem; color: var(--text2); margin-bottom: 6px; }
+    .verlauf-eintrag .verlauf-felder { font-size: 0.85rem; }
+    .verlauf-feld { display: flex; gap: 8px; margin-bottom: 3px; }
+    .verlauf-feld .feld-name { color: var(--text2); min-width: 80px; }
+    .verlauf-feld .feld-alt { color: var(--accent); text-decoration: line-through; }
+    .verlauf-feld .feld-neu { color: var(--green); }
+
+    .btn-loeschen {
+      background: rgba(231,76,60,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(231,76,60,0.3);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .btn-loeschen:hover { background: var(--accent); color: white; }
+
+    .ma-hinzufuegen-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .ma-hinzufuegen-form input {
+      flex: 1;
+      min-width: 160px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 14px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .ma-hinzufuegen-form input:focus { border-color: var(--green); }
+    .btn-hinzufuegen {
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-hinzufuegen:hover { opacity: 0.85; }
+
+    /* ════════ AKTION-BUTTONS ════════ */
+    .btn-aktion {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      border-radius: 5px;
+      padding: 4px 9px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-right: 4px;
+    }
+    .btn-aktion:hover { background: var(--card2); color: var(--text); }
+    .btn-aktion.del:hover { background: var(--red); color: white; border-color: var(--red); }
+
+    /* ════════ MODAL ════════ */
+    .modal-bg {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 500;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal-bg.offen { display: flex; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 820px;
+      margin: auto;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card2);
+    }
+    .modal-header h2 { font-size: 1.3rem; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 1.6rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 24px; }
+
+    /* ── Stats-Zeile im Modal ── */
+    .modal-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .modal-stat {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .modal-stat .wert { font-size: 1.5rem; font-weight: 800; }
+    .modal-stat .bez  { font-size: 0.72rem; color: var(--text2); text-transform: uppercase; margin-top: 2px; }
+
+    /* ── Mini-Kalender ── */
+    .mini-kalender {
+      margin-bottom: 24px;
+    }
+    .mini-kalender h3 {
+      font-size: 0.9rem;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .kalender-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .kalender-kopf {
+      font-size: 0.7rem;
+      text-align: center;
+      color: var(--text2);
+      padding: 4px 2px;
+      font-weight: 600;
+    }
+    .kal-tag {
+      border-radius: 6px;
+      text-align: center;
+      padding: 5px 2px;
+      font-size: 0.75rem;
+      cursor: default;
+      position: relative;
+      min-height: 42px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .kal-tag .tag-num { font-size: 0.7rem; opacity: 0.6; }
+    .kal-tag .tag-std { font-size: 0.8rem; font-weight: 700; }
+
+    .kal-leer        { background: transparent; }
+    .kal-wochenende  { background: rgba(255,255,255,0.03); color: var(--text2); }
+    .kal-normal      { background: rgba(39,174,96,0.2);   color: var(--green); border: 1px solid rgba(39,174,96,0.4); }
+    .kal-spaet       { background: rgba(231,76,60,0.2);   color: #ff6b6b;      border: 1px solid rgba(231,76,60,0.5); }
+    .kal-ueber       { background: rgba(230,126,34,0.2);  color: var(--orange); border: 1px solid rgba(230,126,34,0.4); }
+    .kal-samstag     { background: rgba(41,128,185,0.2);  color: var(--blue);   border: 1px solid rgba(41,128,185,0.4); }
+    .kal-fehlt       { background: rgba(255,255,255,0.05); color: #666; }
+    .kal-tag:hover   { filter: brightness(1.3); }
+
+    /* ── Bewertung ── */
+    .bewertung-sektion {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .bewertung-sektion h3 {
+      font-size: 0.9rem;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    .sterne-zeile {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .stern {
+      font-size: 1.8rem;
+      cursor: pointer;
+      color: #555;
+      transition: color 0.1s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .stern.aktiv { color: #f1c40f; }
+    .stern:hover { color: #f1c40f; }
+    .notiz-feld {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      margin-bottom: 10px;
+      font-family: inherit;
+    }
+    .notiz-feld:focus { border-color: var(--accent); }
+    .btn-speichern {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-speichern:hover { opacity: 0.85; }
+    .speichern-ok { color: var(--green); font-size: 0.85rem; margin-left: 10px; }
+
+    /* ── Bearbeiten-Modal ── */
+    #bearbeiten-modal .modal { max-width: 420px; }
+    .form-gruppe { margin-bottom: 14px; }
+    .form-gruppe label { display: block; font-size: 0.82rem; color: var(--text2); margin-bottom: 4px; }
+    .form-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 8px 12px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .form-input:focus { border-color: var(--accent); }
+
+    /* ════════ SPINNER ════════ */
+    .spinner-inline {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .lade-hinweis { color: var(--text2); padding: 30px; text-align: center; }
+
+    /* ════════ TOOLTIP ════════ */
+    .tooltip-wrap { position: relative; }
+    .tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      z-index: 10;
+      color: var(--text);
+      pointer-events: none;
+    }
+    .tooltip-wrap:hover .tooltip { display: block; }
+
+    /* ════════ URLAUB ════════ */
+    .kal-urlaub { background: #5d4a00 !important; color: #ffd700 !important; border: 1px solid #7a6200 !important; }
+    .kal-krank  { background: #3d1a5e !important; color: #c77dff !important; border: 1px solid #5a2a8a !important; }
+
+    .urlaub-banner {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      border-top: 3px solid var(--orange);
+      font-size: 0.9rem;
+    }
+    .urlaub-banner span { color: var(--text2); }
+    .urlaub-banner strong { color: var(--text); }
+
+    .urlaub-section {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    .urlaub-section h4 {
+      font-size: 0.9rem;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    .urlaub-form {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .urlaub-form input,
+    .urlaub-form select {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .urlaub-form input:focus,
+    .urlaub-form select:focus { border-color: var(--orange); }
+    .urlaub-form button {
+      background: var(--orange);
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 7px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .urlaub-form button:hover { opacity: 0.85; }
+
+    #urlaub-liste { font-size: 0.85rem; }
+    .urlaub-zeile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .urlaub-zeile:last-child { border-bottom: none; }
+    .urlaub-typ-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .urlaub-typ-urlaub    { background: rgba(93,74,0,0.4); color: #ffd700; }
+    .urlaub-typ-krank     { background: rgba(61,26,94,0.4); color: #c77dff; }
+    .urlaub-typ-sonderurlaub { background: rgba(41,128,185,0.2); color: var(--blue); }
+    .urlaub-del-btn {
+      background: none;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-left: auto;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .urlaub-del-btn:hover { background: var(--red); color: white; }
+
+    /* ════════ JAHRESÜBERSICHT ════════ */
+    .jahres-nav {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .jahres-nav button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .jahres-nav button:hover { background: var(--card2); }
+    .jahres-nav .jahres-label {
+      font-size: 1.1rem;
+      font-weight: 700;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .jahres-ma-sektion {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .jahres-ma-header {
+      background: var(--card2);
+      padding: 12px 16px;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .jahres-urlaub-summary {
+      padding: 10px 16px 14px;
+      font-size: 0.88rem;
+      color: var(--text2);
+      border-top: 1px solid var(--border);
+    }
+    .jahres-urlaub-summary strong { color: var(--text); }
+    .jahres-rest { color: var(--green); font-weight: 700; }
+
+    .ma-uebersicht-reihe {
+      display: flex; gap: 10px; overflow-x: auto;
+      padding: 4px 16px 12px; margin-bottom: 4px;
+    }
+    .ma-uebersicht-karte {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; min-width: 155px;
+      flex-shrink: 0; cursor: pointer; transition: border-color 0.15s;
+    }
+    .ma-uebersicht-karte:hover { border-color: var(--accent); }
+    .ma-uebersicht-karte .ma-uk-name {
+      font-weight: 700; font-size: 0.88rem; color: var(--text);
+      border-bottom: 1px solid var(--border); padding-bottom: 7px; margin-bottom: 7px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ma-uebersicht-karte .ma-uk-zeile {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.8rem; margin-top: 4px; color: var(--text2);
+    }
+    .ma-uebersicht-karte .ma-uk-zeile span { font-weight: 600; }
+    .ma-uk-gruen { color: var(--green) !important; }
+    .ma-uk-orange { color: var(--orange) !important; }
+    .ma-uk-rot { color: var(--accent) !important; }
+
+    .modal-reiter-leiste {
+      display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .modal-reiter {
+      background: var(--card2); color: var(--text2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .modal-reiter:hover { color: var(--text); }
+    .modal-reiter.aktiv { background: var(--accent); color: white; border-color: var(--accent); }
+
+    .zusammen-karte {
+      background: var(--card2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 18px; margin-bottom: 10px;
+    }
+    .zusammen-karte .label { color: var(--text2); font-size: 0.85rem; margin-bottom: 4px; }
+    .zusammen-karte .wert { font-size: 1.4rem; font-weight: 700; }
+    .zusammen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .zusammen-diff-pos { color: var(--orange); }
+    .zusammen-diff-neg { color: var(--accent); }
+    .zusammen-diff-null { color: var(--green); }
+
+    /* ════════ RESPONSIVE – TABLET (iPad) ════════ */
+    @media (max-width: 900px) {
+      #dashboard { padding: 12px; }
+      .ma-uebersicht-reihe { padding: 4px 0 10px; }
+      .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+      .tab-btn { white-space: nowrap; padding: 10px 14px; font-size: 0.88rem; }
+      .tabelle-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      table { min-width: 600px; }
+      .modal { max-width: 95vw !important; max-height: 90vh; overflow-y: auto; }
+      .modal-body { padding: 14px; }
+      .urlaub-form { flex-wrap: wrap; }
+      .urlaub-form input, .urlaub-form select { width: 100%; }
+      .modal-stats { grid-template-columns: repeat(3, 1fr); }
+      .jahres-nav button { font-size: 1.2rem; padding: 8px 16px; }
+    }
+
+    /* ════════ RESPONSIVE – MOBILE (iPhone) ════════ */
+    @media (max-width: 600px) {
+      #header { padding: 0 12px; height: 48px; }
+      .header-titel { font-size: 0.85rem; }
+      .monat-label { font-size: 0.82rem; min-width: 90px; }
+      .monat-nav button { padding: 3px 8px; font-size: 0.9rem; }
+      .abmelden-btn { font-size: 0.75rem; padding: 5px 8px; }
+      #dashboard { padding: 10px; }
+
+      /* Login */
+      .login-card { padding: 28px 20px; }
+      .login-card h1 { font-size: 1.3rem; }
+
+      /* Heute-Leiste */
+      .heute-leiste { font-size: 0.82rem; padding: 10px 12px; }
+
+      /* MA-Karten horizontal scroll */
+      .ma-uebersicht-reihe { padding: 0 0 10px; gap: 8px; }
+      .ma-uebersicht-karte { min-width: 140px; padding: 10px 12px; }
+      .ma-uebersicht-karte .ma-uk-name { font-size: 0.82rem; }
+      .ma-uebersicht-karte .ma-uk-zeile { font-size: 0.75rem; }
+
+      /* Tabs */
+      .tabs { gap: 0; border-bottom: 1px solid var(--border); overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+      .tab-btn { padding: 10px 12px; font-size: 0.8rem; white-space: nowrap; }
+      .tab-inhalt { padding-top: 12px; }
+
+      /* Tabellen */
+      .tabelle-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+      table { min-width: 500px; font-size: 0.78rem; }
+      th, td { padding: 7px 8px; }
+
+      /* Modal vollbild */
+      .modal-bg { align-items: flex-end; }
+      .modal {
+        max-width: 100% !important; width: 100% !important;
+        max-height: 92vh; border-radius: 16px 16px 0 0 !important;
+        overflow-y: auto; margin: 0;
+      }
+      .modal-header { padding: 14px 16px; }
+      .modal-header h2 { font-size: 1rem; }
+      .modal-body { padding: 12px 14px; }
+      .modal-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .modal-stat .wert { font-size: 1.1rem; }
+      .modal-stat .bez { font-size: 0.7rem; }
+
+      /* Urlaub eintragen */
+      .urlaub-form { flex-direction: column; gap: 8px; }
+      .urlaub-form input[type="date"],
+      .urlaub-form select,
+      .urlaub-form button { width: 100%; padding: 11px; font-size: 0.95rem; border-radius: 8px; }
+
+      /* Urlaub-Banner */
+      .urlaub-banner { flex-direction: column; gap: 4px; font-size: 0.82rem; }
+
+      /* Kalender */
+      .kalender-grid { gap: 2px; }
+      .kal-tag { font-size: 0.7rem; padding: 3px 2px; min-width: 28px; min-height: 28px; }
+
+      /* Bewertung */
+      .stern { font-size: 1.6rem; }
+
+      /* Modal-Reiter */
+      .modal-reiter-leiste { gap: 3px; }
+      .modal-reiter { padding: 5px 10px; font-size: 0.78rem; }
+
+      /* Zusammenfassung */
+      .zusammen-grid { grid-template-columns: 1fr; }
+
+      /* MA-Tab */
+      .ma-karten-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .ma-karte { padding: 12px; }
+      .ma-hinzufuegen-form { flex-direction: column; gap: 8px; }
+      .ma-hinzufuegen-form input,
+      .ma-hinzufuegen-form .btn-hinzufuegen { width: 100%; }
+
+      /* Jahresübersicht */
+      .jahres-nav { padding: 10px 0; }
+      .jahres-label { font-size: 1.1rem; }
+      .jahres-urlaub-summary { font-size: 0.78rem; flex-direction: column; gap: 4px; }
+
+      /* QR */
+      .qr-inhalt { flex-direction: column; align-items: center; }
+    }
+
+    @media print {
+      body { background: white; color: black; font-size: 12px; }
+      /* Standard-Druck: Monatsübersicht */
+      #login-overlay, #header, .qr-sektion, .heute-leiste, .karten-reihe, .tabs,
+      #tab-detail, #tab-mitarbeiter, #tab-jahres,
+      button, .abmelden-btn { display: none !important; }
+      #dashboard { padding: 0; }
+      #tab-monat { display: block !important; }
+      #print-header { display: block !important; }
+      /* Mitarbeiter-Modal Druck */
+      .modal-bg#ma-detail-modal.print-modus {
+        position: static !important; background: none !important;
+        display: block !important;
+      }
+      .modal-bg#ma-detail-modal.print-modus .modal {
+        box-shadow: none !important; max-width: 100% !important;
+        border: none !important;
+      }
+      .modal-reiter-leiste, .modal-close, .urlaub-section,
+      .bewertung-sektion, .mini-kalender, .urlaub-banner,
+      .modal-stats, #dashboard { display: none !important; }
+      .modal-bg#ma-detail-modal.print-modus { display: block !important; }
+      .modal-reiter-inhalt { display: none !important; }
+      .modal-reiter-inhalt[style*="display: block"] { display: block !important; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 6px 8px; color: black; }
+      th { background: #eee; }
+      .td-orange { color: #c07000; }
+      .td-rot { color: #c00000; }
+      .td-blau { color: #00007f; }
+      .badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     LOGIN OVERLAY
+════════════════════════════════════════ -->
+<div id="login-overlay">
+  <div class="login-card">
+    <h1>Sevinc Metallbau</h1>
+    <div class="sub">Zeiterfassung Admin</div>
+    <input type="email" id="login-email" class="login-input" placeholder="E-Mail">
+    <input type="password" id="login-pw" class="login-input" placeholder="Passwort">
+    <button class="login-btn" onclick="doLogin()">Anmelden</button>
+    <div id="login-fehler" style="display:none" class="login-fehler"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     HEADER
+════════════════════════════════════════ -->
+<div id="header" style="display:none">
+  <div class="header-titel">Zeiterfassung</div>
+  <div class="monat-nav">
+    <button onclick="monatAendern(-1)">&#8592;</button>
+    <div class="monat-label" id="monat-label">–</div>
+    <button onclick="monatAendern(+1)">&#8594;</button>
+  </div>
+  <button class="abmelden-btn" onclick="doLogout()">Abmelden</button>
+</div>
+
+<!-- ════════════════════════════════════════
+     DASHBOARD
+════════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- QR-Code -->
+  <div class="qr-sektion">
+    <button class="qr-toggle" onclick="toggleQR(this)">
+      <span>QR-Code für Mitarbeiter anzeigen</span>
+      <span>&#9660;</span>
+    </button>
+    <div class="qr-inhalt" id="qr-inhalt">
+      <div id="qr-code-el"></div>
+      <div class="qr-info">
+        <strong>Stempel-Link für Mitarbeiter</strong>
+        <div class="qr-url" id="qr-url-text"></div>
+        <button class="qr-kopier-btn" onclick="kopiereUrl()">Link kopieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Heute-Leiste -->
+  <div class="heute-leiste" id="heute-leiste">Lade...</div>
+
+  <!-- Mitarbeiter-Übersichtskarten -->
+  <div class="ma-uebersicht-reihe" id="ma-uebersicht-reihe">
+    <div class="lade-hinweis"><span class="spinner-inline"></span> Lade…</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn aktiv" onclick="zeigeTab('monat', this)">Monatsübersicht</button>
+    <button class="tab-btn" onclick="zeigeTab('detail', this)">Detailansicht</button>
+    <button class="tab-btn" onclick="zeigeTab('mitarbeiter', this)">Mitarbeiter</button>
+    <button class="tab-btn" onclick="zeigeTab('jahres', this)">Jahresübersicht</button>
+    <button class="tab-btn" onclick="zeigeTab('kundenzeiten', this)">Kundenzeiten</button>
+  </div>
+
+  <!-- Druck-Kopfzeile (nur beim Drucken sichtbar) -->
+  <div id="print-header" style="display:none;margin-bottom:16px;">
+    <h2 style="margin:0 0 4px 0;">Sevinc Metallbau – Zeiterfassung</h2>
+    <div id="print-monat-label" style="font-size:14px;color:#555;"></div>
+  </div>
+
+  <!-- Tab: Monatsübersicht -->
+  <div class="tab-inhalt aktiv" id="tab-monat">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <button onclick="druckeMonat()" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 18px;cursor:pointer;font-size:0.9rem;">&#128438; Monat drucken</button>
+    </div>
+    <div class="tabelle-wrap">
+      <table id="monat-tabelle">
+        <thead>
+          <tr>
+            <th>Mitarbeiter</th>
+            <th>Tage Mo-Fr</th>
+            <th>Tage Sa</th>
+            <th>Std. Mo-Fr</th>
+            <th>Std. Sa</th>
+            <th>Gesamt</th>
+            <th>Soll</th>
+            <th>Über-/Unterst.</th>
+            <th>Zu spät</th>
+          </tr>
+        </thead>
+        <tbody id="monat-tbody">
+          <tr><td colspan="9" class="lade-hinweis"><span class="spinner-inline"></span> Lade Daten…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Detailansicht -->
+  <div class="tab-inhalt" id="tab-detail">
+    <div class="filter-zeile">
+      <select id="filter-ma" onchange="ladeDetail()">
+        <option value="">Alle Mitarbeiter</option>
+      </select>
+      <select id="filter-status" onchange="ladeDetail()">
+        <option value="">Alle anzeigen</option>
+        <option value="unvoll">Nur unvollständige</option>
+      </select>
+    </div>
+    <div class="tabelle-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Tag</th>
+            <th>Mitarbeiter</th>
+            <th>Beginn</th>
+            <th>Ende</th>
+            <th>Netto-Std</th>
+            <th>Status</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="detail-tbody">
+          <tr><td colspan="8" class="lade-hinweis">Bitte oben einen Zeitraum wählen.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tab: Mitarbeiter -->
+  <div class="tab-inhalt" id="tab-mitarbeiter">
+    <div class="ma-karten-grid" id="ma-karten-grid">
+      <div class="lade-hinweis"><span class="spinner-inline"></span> Lade…</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin-bottom:16px">
+    <div style="font-size:0.9rem;color:var(--text2);margin-bottom:8px;font-weight:600">Neuen Mitarbeiter hinzufügen</div>
+    <div class="ma-hinzufuegen-form">
+      <input type="text" id="neuer-ma-name" placeholder="Vollständiger Name" onkeydown="if(event.key==='Enter') addMA()">
+      <input type="date" id="neuer-ma-eintritt" title="Eintrittsdatum" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:0.95rem;">
+      <button class="btn-hinzufuegen" onclick="addMA()">+ Hinzufügen</button>
+    </div>
+    <div style="font-size:0.8rem;color:var(--text2);margin-top:6px;">Eintrittsdatum angeben, damit keine Fehltage vor Arbeitsbeginn gezählt werden.</div>
+    <div id="ma-fehler" style="display:none;margin-top:10px;color:var(--accent);font-size:0.85rem"></div>
+  </div>
+
+  <!-- Tab: Jahresübersicht -->
+  <div class="tab-inhalt" id="tab-jahres">
+    <div class="jahres-nav">
+      <button onclick="jahresAendern(-1)">&#8592;</button>
+      <div class="jahres-label" id="jahres-label">–</div>
+      <button onclick="jahresAendern(+1)">&#8594;</button>
+    </div>
+    <div id="jahres-inhalt">
+      <div class="lade-hinweis">Bitte Tab auswählen um Daten zu laden.</div>
+    </div>
+  </div>
+
+  <!-- Tab: Kundenzeiten -->
+  <div class="tab-inhalt" id="tab-kundenzeiten">
+    <div class="kz-filter-reihe">
+      <select id="kz-filter-monat"></select>
+      <select id="kz-filter-ma">
+        <option value="">Alle Mitarbeiter</option>
+      </select>
+      <input type="text" id="kz-filter-kunde" placeholder="Kunde suchen…" oninput="renderKundenzeiten()">
+      <button onclick="ladeKundenzeiten()" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.9rem;flex:0 0 auto;">&#8635; Laden</button>
+    </div>
+    <div class="kz-tabelle-wrap">
+      <table class="kz-tabelle">
+        <thead>
+          <tr>
+            <th>✓</th>
+            <th>Datum</th>
+            <th>Mitarbeiter</th>
+            <th>Kunde</th>
+            <th>Von–Bis</th>
+            <th>Stunden</th>
+            <th>Tätigkeit</th>
+            <th>Eingetragen</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="kz-tbody">
+          <tr><td colspan="8" style="text-align:center;color:var(--text2);padding:20px">Bitte Monat laden</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="kz-zusammenfassung"></div>
+  </div>
+
+</div><!-- /dashboard -->
+
+<!-- ════════════════════════════════════════
+     MITARBEITER-DETAIL-MODAL
+════════════════════════════════════════ -->
+<div class="modal-bg" id="ma-detail-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-ma-name">–</h2>
+      <button class="modal-close" onclick="schliesseModal('ma-detail-modal')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-stats" id="modal-stats"></div>
+
+      <!-- Urlaubs-Banner -->
+      <div class="urlaub-banner">
+        <span>&#127958; Jahresurlaub <span id="modal-urlaub-jahr">–</span>: <strong>25 Werktage</strong></span>
+        <span>Urlaub genommen: <strong id="modal-urlaub-genommen">0</strong></span>
+        <span>Krank: <strong id="modal-urlaub-krank">0</strong></span>
+        <span>Sonderurlaub: <strong id="modal-urlaub-sonder">0</strong></span>
+        <span style="color: var(--green)">Verbleibend: <strong id="modal-urlaub-rest">25</strong></span>
+      </div>
+
+      <div class="mini-kalender">
+        <h3>Kalender</h3>
+        <div class="kalender-grid" id="kalender-grid"></div>
+      </div>
+
+      <!-- Urlaub eintragen -->
+      <div class="urlaub-section">
+        <h4>Urlaub / Krank eintragen</h4>
+        <div class="urlaub-form">
+          <input type="date" id="urlaub-von" placeholder="Von">
+          <input type="date" id="urlaub-bis" placeholder="Bis">
+          <select id="urlaub-typ">
+            <option value="urlaub">Urlaub</option>
+            <option value="krank">Krank</option>
+            <option value="sonderurlaub">Sonderurlaub</option>
+          </select>
+          <button onclick="urlaubEintragen()">Eintragen</button>
+        </div>
+        <div id="urlaub-liste"></div>
+      </div>
+
+      <div class="bewertung-sektion">
+        <h3 id="bewertung-titel">Bewertung</h3>
+        <div class="sterne-zeile" id="sterne-zeile">
+          <span class="stern" data-n="1" onclick="setStern(1)">&#9733;</span>
+          <span class="stern" data-n="2" onclick="setStern(2)">&#9733;</span>
+          <span class="stern" data-n="3" onclick="setStern(3)">&#9733;</span>
+          <span class="stern" data-n="4" onclick="setStern(4)">&#9733;</span>
+          <span class="stern" data-n="5" onclick="setStern(5)">&#9733;</span>
+        </div>
+        <textarea class="notiz-feld" id="bewertung-notiz" placeholder="Notizen zum Monat…"></textarea>
+        <button class="btn-speichern" onclick="speicherBewertung()">Speichern</button>
+        <span class="speichern-ok" id="bewertung-ok" style="display:none">&#10003; Gespeichert</span>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <h3 style="font-size:0.9rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin:0">Monatsdetail</h3>
+          <button onclick="druckeMAMonat()" style="background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.85rem;">&#128438; Monat drucken</button>
+        </div>
+        <div class="modal-reiter-leiste">
+          <button class="modal-reiter aktiv" onclick="zeigeModalReiter('alle',this)">Alle Tage</button>
+          <button class="modal-reiter" onclick="zeigeModalReiter('ueber',this)">Überstunden</button>
+          <button class="modal-reiter" onclick="zeigeModalReiter('minus',this)">Minusstunden</button>
+          <button class="modal-reiter" onclick="zeigeModalReiter('zusammen',this)">Zusammenfassung</button>
+        </div>
+        <div id="modal-tab-alle" class="modal-reiter-inhalt">
+          <div class="tabelle-wrap">
+            <table>
+              <thead><tr><th>Datum</th><th>Tag</th><th>Beginn</th><th>Ende</th><th>Netto</th><th>+/- Std</th><th>Status</th></tr></thead>
+              <tbody id="modal-tbody-alle"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="modal-tab-ueber" class="modal-reiter-inhalt" style="display:none">
+          <div class="tabelle-wrap">
+            <table>
+              <thead><tr><th>Datum</th><th>Tag</th><th>Beginn</th><th>Ende</th><th>Netto</th><th>Überstunden</th></tr></thead>
+              <tbody id="modal-tbody-ueber"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="modal-tab-minus" class="modal-reiter-inhalt" style="display:none">
+          <div class="tabelle-wrap">
+            <table>
+              <thead><tr><th>Datum</th><th>Tag</th><th>Beginn</th><th>Ende</th><th>Netto</th><th>Minusstunden</th></tr></thead>
+              <tbody id="modal-tbody-minus"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="modal-tab-zusammen" class="modal-reiter-inhalt" style="display:none">
+          <div id="modal-zusammen-inhalt"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     KUNDENZEIT BEARBEITEN MODAL
+════════════════════════════════════════ -->
+<div class="modal-bg" id="kz-edit-modal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2>Eintrag bearbeiten</h2>
+      <button class="modal-close" onclick="schliesseModal('kz-edit-modal')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="kz-edit-id">
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:0.8rem;color:var(--text2);margin-bottom:4px">Mitarbeiter</label>
+        <input type="text" id="kz-edit-ma" readonly style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:9px 12px;font-size:0.9rem">
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:0.8rem;color:var(--text2);margin-bottom:4px">Kundenname *</label>
+        <input type="text" id="kz-edit-kunde" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:0.9rem;outline:none">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="display:block;font-size:0.8rem;color:var(--text2);margin-bottom:4px">Datum *</label>
+          <input type="date" id="kz-edit-datum" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:0.9rem">
+        </div>
+        <div>
+          <label style="display:block;font-size:0.8rem;color:var(--text2);margin-bottom:4px">Von *</label>
+          <input type="time" id="kz-edit-von" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:0.9rem">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:0.8rem;color:var(--text2);margin-bottom:4px">Bis *</label>
+        <input type="time" id="kz-edit-bis" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:0.9rem">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:0.8rem;color:var(--text2);margin-bottom:4px">Tätigkeit</label>
+        <textarea id="kz-edit-taet" rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:0.9rem;resize:vertical;font-family:inherit"></textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="schliesseModal('kz-edit-modal')" style="flex:1;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:11px;cursor:pointer;font-size:0.9rem">Abbrechen</button>
+        <button onclick="speichereKzEdit()" style="flex:2;background:var(--green);color:white;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:0.9rem;font-weight:700">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     VERLAUF MODAL
+════════════════════════════════════════ -->
+<div class="modal-bg" id="kz-verlauf-modal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h2>Änderungshistorie</h2>
+      <button class="modal-close" onclick="schliesseModal('kz-verlauf-modal')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div id="kz-verlauf-info" style="font-size:0.85rem;color:var(--text2);margin-bottom:12px"></div>
+      <div class="verlauf-liste" id="kz-verlauf-liste">
+        <div class="lade-hinweis">Lade…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     STEMPEL BEARBEITEN MODAL
+════════════════════════════════════════ -->
+<div class="modal-bg" id="bearbeiten-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>Eintrag bearbeiten</h2>
+      <button class="modal-close" onclick="schliesseModal('bearbeiten-modal')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-ma">
+      <input type="hidden" id="edit-datum-alt">
+      <div class="form-gruppe">
+        <label>Mitarbeiter</label>
+        <input type="text" id="edit-ma-anzeige" class="form-input" readonly>
+      </div>
+      <div class="form-gruppe">
+        <label>Datum</label>
+        <input type="date" id="edit-datum" class="form-input">
+      </div>
+      <div class="form-gruppe">
+        <label>Arbeitsbeginn</label>
+        <input type="time" id="edit-beginn" class="form-input">
+      </div>
+      <div class="form-gruppe">
+        <label>Arbeitsende (optional)</label>
+        <input type="time" id="edit-ende" class="form-input">
+      </div>
+      <div id="edit-fehler" style="display:none;color:var(--accent);font-size:0.85rem;margin-bottom:10px"></div>
+      <button class="btn-speichern" onclick="speicherBearbeitung()" style="width:100%;padding:11px">Speichern</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ════════════════════════════════════════
+// KONFIGURATION – HIER DEINE ZUGANGSDATEN EINTRAGEN
+// ════════════════════════════════════════
+const SUPABASE_URL     = 'https://febvatualuantefwlqyq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlYnZhdHVhbHVhbnRlZndscXlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDcyMzUsImV4cCI6MjA5MDEyMzIzNX0.kK8cfkl3FXRxeDi1vZUNaRFf4-eIsi0TrFAvXDvUujc';
+// ════════════════════════════════════════
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── GLOBALER STATE ──
+let state = {
+  monat: new Date().getMonth() + 1,
+  jahr:  new Date().getFullYear(),
+  jahresJahr: new Date().getFullYear(),
+  alleMitarbeiter: [],
+  aktuellerModalMA: null,
+  aktuellerStern: 0,
+  urlaub: []
+};
+
+// ── HILFSFUNKTIONEN ──
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function monatName(m, j) {
+  const namen = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  return namen[m - 1] + ' ' + j;
+}
+
+function tagName(dow) {
+  return ['So','Mo','Di','Mi','Do','Fr','Sa'][dow];
+}
+
+function tagNameLang(dow) {
+  return ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][dow];
+}
+
+function heuteDatum() {
+  const d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+function nettoStunden(beginn, ende) {
+  if (!beginn || !ende) return null;
+  const [bh, bm] = beginn.split(':').map(Number);
+  const [eh, em] = ende.split(':').map(Number);
+  let min = (eh * 60 + em) - (bh * 60 + bm);
+  if (min < 0) min += 1440;
+  if (min >= 360) min -= 60;
+  return min / 60;
+}
+
+function formatH(h) {
+  if (h === null || h === undefined) return '–';
+  const s = Math.floor(h);
+  const m = Math.round((h - s) * 60);
+  return s + 'h' + (m > 0 ? ' ' + pad(m) + 'min' : '');
+}
+
+function sollStunden(monat, jahr) {
+  let werktage = 0;
+  const tage = new Date(jahr, monat, 0).getDate();
+  for (let t = 1; t <= tage; t++) {
+    const dow = new Date(jahr, monat - 1, t).getDay();
+    if (dow >= 1 && dow <= 5) werktage++;
+  }
+  return werktage * 8;
+}
+
+function isSpaet(beginn) {
+  if (!beginn) return false;
+  return beginn > '07:00';
+}
+
+// ── AUTH ──
+
+sb.auth.onAuthStateChange(function(event, session) {
+  if (session) {
+    document.getElementById('login-overlay').classList.add('versteckt');
+    document.getElementById('header').style.display = 'flex';
+    document.getElementById('dashboard').classList.add('aktiv');
+    init();
+  } else {
+    document.getElementById('login-overlay').classList.remove('versteckt');
+    document.getElementById('header').style.display = 'none';
+    document.getElementById('dashboard').classList.remove('aktiv');
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const fehlerEl = document.getElementById('login-fehler');
+  fehlerEl.style.display = 'none';
+
+  if (!email || !pw) {
+    fehlerEl.textContent = 'Bitte E-Mail und Passwort eingeben.';
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    fehlerEl.textContent = 'Falsche Zugangsdaten. Bitte nochmal versuchen.';
+    fehlerEl.style.display = 'block';
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+}
+
+// Login mit Enter
+document.getElementById('login-pw').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ── INIT ──
+
+async function init() {
+  aktualisiereMonatLabel();
+  await ladeMitarbeiter();
+  ladeAlles();
+  generiereQR();
+  // Auto-Refresh alle 30 Sekunden
+  setInterval(function() {
+    invalidateCache();
+    ladeAlles();
+    // Kundenzeiten-Tab auch aktualisieren wenn aktiv
+    const kzTab = document.getElementById('tab-kundenzeiten');
+    if (kzTab && kzTab.classList.contains('aktiv')) ladeKundenzeiten();
+  }, 30000);
+}
+
+function aktualisiereMonatLabel() {
+  document.getElementById('monat-label').textContent = monatName(state.monat, state.jahr);
+}
+
+function monatAendern(delta) {
+  state.monat += delta;
+  if (state.monat > 12) { state.monat = 1; state.jahr++; }
+  if (state.monat < 1)  { state.monat = 12; state.jahr--; }
+  aktualisiereMonatLabel();
+  ladeAlles();
+}
+
+async function ladeAlles() {
+  await ladeUrlaubDaten();
+  ladeHeute();
+  ladeMonatsübersicht();
+  ladeDetail();
+}
+
+async function ladeUrlaubDaten() {
+  const { data: urlaubData } = await sb.from('urlaub')
+    .select('*')
+    .gte('datum', state.jahr + '-01-01')
+    .lte('datum', state.jahr + '-12-31');
+  state.urlaub = urlaubData || [];
+}
+
+// ── MITARBEITER LADEN ──
+
+async function ladeMitarbeiter() {
+  const { data } = await sb.from('mitarbeiter').select('*').order('name');
+  state.alleMitarbeiter = data || [];
+
+  // Filter-Dropdown befüllen
+  const sel = document.getElementById('filter-ma');
+  sel.innerHTML = '<option value="">Alle Mitarbeiter</option>';
+  state.alleMitarbeiter.forEach(function(ma) {
+    const opt = document.createElement('option');
+    opt.value = ma.name;
+    opt.textContent = ma.name;
+    sel.appendChild(opt);
+  });
+
+  ladeMitarbeiterTab();
+}
+
+// ── QR-CODE ──
+
+function generiereQR() {
+  const url = window.location.origin + window.location.pathname.replace('admin.html', 'stempel.html');
+  document.getElementById('qr-url-text').textContent = url;
+  document.getElementById('qr-code-el').innerHTML = '';
+  new QRCode(document.getElementById('qr-code-el'), {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: '#e94560',
+    colorLight: '#16213e'
+  });
+}
+
+function toggleQR(btn) {
+  const inhalt = document.getElementById('qr-inhalt');
+  const isOffen = inhalt.classList.contains('offen');
+  inhalt.classList.toggle('offen');
+  const chevron = btn.querySelector('span:last-child');
+  chevron.innerHTML = isOffen ? '&#9660;' : '&#9650;';
+}
+
+function kopiereUrl() {
+  const url = document.getElementById('qr-url-text').textContent;
+  navigator.clipboard.writeText(url).then(function() {
+    const btn = document.querySelector('.qr-kopier-btn');
+    btn.textContent = 'Kopiert!';
+    setTimeout(function() { btn.textContent = 'Link kopieren'; }, 2000);
+  });
+}
+
+// ── HEUTE-LEISTE ──
+
+async function ladeHeute() {
+  const heute = heuteDatum();
+  const dowH = new Date().getDay();
+
+  // Nur Mo-Fr relevant
+  if (dowH === 0 || dowH === 6) {
+    document.getElementById('heute-leiste').innerHTML =
+      '<strong>Heute:</strong> Wochenende – keine Arbeitspflicht';
+    return;
+  }
+
+  const { data } = await sb.from('stamps')
+    .select('mitarbeiter, typ, zeit')
+    .eq('datum', heute)
+    .order('zeit');
+
+  const anwesendSet = new Set();
+  (data || []).forEach(function(s) {
+    if (s.typ === 'beginn') anwesendSet.add(s.mitarbeiter);
+  });
+
+  const anwesend = [];
+  const fehlt   = [];
+  state.alleMitarbeiter.forEach(function(ma) {
+    if (anwesendSet.has(ma.name)) anwesend.push(ma.name);
+    else fehlt.push(ma.name);
+  });
+
+  let html = '<strong>Heute anwesend:</strong> ';
+  if (anwesend.length) {
+    html += anwesend.map(function(n) { return '<span class="anwesend">' + n + ' ✓</span>'; }).join(', ');
+  } else {
+    html += '<span class="fehlt">Noch niemand</span>';
+  }
+  if (fehlt.length) {
+    html += ' &nbsp;|&nbsp; <strong>Noch nicht gestempelt:</strong> '
+      + fehlt.map(function(n) { return '<span class="fehlt">' + n + '</span>'; }).join(', ');
+  }
+  document.getElementById('heute-leiste').innerHTML = html;
+}
+
+// ── MONATSSTEMPEL LADEN (gecacht) ──
+
+let cacheMonat = null, cacheData = null;
+
+async function ladeMonatsStamps() {
+  const key = state.jahr + '-' + pad(state.monat);
+  if (cacheMonat === key && cacheData) return cacheData;
+
+  const von = state.jahr + '-' + pad(state.monat) + '-01';
+  const bis = state.jahr + '-' + pad(state.monat) + '-' + pad(new Date(state.jahr, state.monat, 0).getDate());
+
+  const { data } = await sb.from('stamps')
+    .select('*')
+    .gte('datum', von)
+    .lte('datum', bis)
+    .order('datum')
+    .order('zeit');
+
+  cacheMonat = key;
+  cacheData  = data || [];
+  return cacheData;
+}
+
+function invalidateCache() {
+  cacheMonat = null;
+  cacheData  = null;
+}
+
+// ── TAGES-MAP AUFBAUEN ──
+// Gibt Map: datum → { ma: { beginn, ende } }
+
+function baueTagesMap(stamps) {
+  const map = {};
+  stamps.forEach(function(s) {
+    if (!map[s.datum]) map[s.datum] = {};
+    if (!map[s.datum][s.mitarbeiter]) map[s.datum][s.mitarbeiter] = { beginn: null, ende: null };
+    if (s.typ === 'beginn') map[s.datum][s.mitarbeiter].beginn = s.zeit.substring(0, 5);
+    if (s.typ === 'ende')   map[s.datum][s.mitarbeiter].ende   = s.zeit.substring(0, 5);
+  });
+  return map;
+}
+
+// ── MONATSÜBERSICHT ──
+
+async function ladeMonatsübersicht() {
+  const tbody = document.getElementById('monat-tbody');
+  tbody.innerHTML = '<tr><td colspan="9" class="lade-hinweis"><span class="spinner-inline"></span> Lade…</td></tr>';
+
+  try {
+    const stamps = await ladeMonatsStamps();
+    const tagesMap = baueTagesMap(stamps);
+    const soll = sollStunden(state.monat, state.jahr);
+
+    // Karten berechnen
+    let gesamtStunden = 0, gesamtUeber = 0, gesamtFehl = 0, gesamtSpaet = 0;
+
+    const rows = state.alleMitarbeiter.map(function(ma) {
+      let tageWoche = 0, tageSa = 0;
+      let stdWoche = 0, stdSa = 0;
+      let zuSpaet = 0;
+      let fehlTage = 0;
+
+      const anzTage = new Date(state.jahr, state.monat, 0).getDate();
+      for (let t = 1; t <= anzTage; t++) {
+        const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
+        const dow = new Date(state.jahr, state.monat - 1, t).getDay();
+        const eintrag = tagesMap[d] && tagesMap[d][ma.name];
+        const isSa = dow === 6;
+        const isSo = dow === 0;
+        const isWerktag = dow >= 1 && dow <= 5;
+
+        // Zukunft: nicht zählen
+        if (d > heuteDatum()) continue;
+        // Vor Eintrittsdatum: nicht zählen (Fallback: created_at)
+        const maEintritt = ma.eintrittsdatum || (ma.created_at ? ma.created_at.substring(0, 10) : null);
+        if (maEintritt && d < maEintritt) continue;
+
+        if (eintrag && eintrag.beginn) {
+          const netto = nettoStunden(eintrag.beginn, eintrag.ende);
+          if (isSa) {
+            tageSa++;
+            stdSa += netto || 0;
+          } else if (isWerktag) {
+            tageWoche++;
+            stdWoche += netto || 0;
+            if (isSpaet(eintrag.beginn)) zuSpaet++;
+          }
+        } else if (isWerktag) {
+          fehlTage++;
+        }
+      }
+
+      const gesamt = stdWoche + stdSa;
+      const ueber  = stdWoche - (tageWoche * 8);
+
+      gesamtStunden += gesamt;
+      if (ueber > 0) gesamtUeber += ueber;
+      gesamtFehl  += fehlTage;
+      gesamtSpaet += zuSpaet;
+
+      return {
+        name: ma.name,
+        tageWoche, tageSa, fehlTage,
+        stdWoche: +stdWoche.toFixed(2),
+        stdSa: +stdSa.toFixed(2),
+        gesamt: +gesamt.toFixed(2),
+        soll: tageWoche * 8,
+        ueber: +ueber.toFixed(2),
+        zuSpaet
+      };
+    });
+
+    // Mitarbeiter-Karten rendern
+    const kartenReihe = document.getElementById('ma-uebersicht-reihe');
+    kartenReihe.innerHTML = '';
+    rows.forEach(function(r) {
+      const diffKl = r.ueber > 0 ? 'ma-uk-orange' : (r.ueber < 0 ? 'ma-uk-rot' : 'ma-uk-gruen');
+      const diffTxt = (r.ueber > 0 ? '+' : '') + formatH(r.ueber);
+      const karte = document.createElement('div');
+      karte.className = 'ma-uebersicht-karte';
+      karte.onclick = function() { oeffneMAModal(r.name); };
+      karte.innerHTML =
+        '<div class="ma-uk-name">' + r.name + '</div>'
+        + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
+        + '<div class="ma-uk-zeile">Über/Minus <span class="' + diffKl + '">' + diffTxt + '</span></div>'
+        + '<div class="ma-uk-zeile">Fehlzeiten <span class="' + (r.fehlTage > 0 ? 'ma-uk-rot' : '') + '">' + r.fehlTage + ' Tage</span></div>'
+        + '<div class="ma-uk-zeile">Zu spät <span class="' + (r.zuSpaet > 0 ? 'ma-uk-rot' : '') + '">' + (r.zuSpaet || '–') + '</span></div>';
+      kartenReihe.appendChild(karte);
+    });
+    if (rows.length === 0) kartenReihe.innerHTML = '<div class="lade-hinweis">Keine Mitarbeiter.</div>';
+
+    // Tabelle rendern
+    tbody.innerHTML = '';
+    rows.forEach(function(r) {
+      const diff = r.ueber;
+      const diffKlasse = diff > 0 ? 'td-orange' : (diff < 0 ? 'td-rot' : '');
+      const diffText = (diff > 0 ? '+' : '') + formatH(diff);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><span class="ma-link" onclick="oeffneMAModal(\'' + r.name.replace(/'/g, "\\'") + '\')">' + r.name + '</span></td>'
+        + '<td>' + r.tageWoche + '</td>'
+        + '<td class="td-blau">' + (r.tageSa || '–') + '</td>'
+        + '<td>' + formatH(r.stdWoche) + '</td>'
+        + '<td class="td-blau">' + (r.tageSa > 0 ? formatH(r.stdSa) : '–') + '</td>'
+        + '<td><strong>' + formatH(r.gesamt) + '</strong></td>'
+        + '<td>' + formatH(r.soll) + '</td>'
+        + '<td class="' + diffKlasse + '"><strong>' + diffText + '</strong></td>'
+        + '<td class="' + (r.zuSpaet > 0 ? 'td-rot' : '') + '">' + (r.zuSpaet || '–') + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" class="lade-hinweis">Keine Mitarbeiter gefunden.</td></tr>';
+    }
+
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="9" class="lade-hinweis" style="color:var(--accent)">Fehler: ' + err.message + '</td></tr>';
+  }
+}
+
+// ── DETAILANSICHT ──
+
+async function ladeDetail() {
+  const tbody = document.getElementById('detail-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="lade-hinweis"><span class="spinner-inline"></span> Lade…</td></tr>';
+
+  try {
+    const stamps = await ladeMonatsStamps();
+    const filterMA = document.getElementById('filter-ma').value;
+    const filterStatus = document.getElementById('filter-status').value;
+    const tagesMap = baueTagesMap(stamps);
+
+    // Alle Tage des Monats × alle MA aufbauen
+    const rows = [];
+    const anzTage = new Date(state.jahr, state.monat, 0).getDate();
+
+    for (let t = 1; t <= anzTage; t++) {
+      const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
+      const dow = new Date(state.jahr, state.monat - 1, t).getDay();
+      if (dow === 0) continue; // Sonntag überspringen
+
+      const maListe = filterMA ? [{ name: filterMA }] : state.alleMitarbeiter;
+
+      maListe.forEach(function(ma) {
+        const eintrag = tagesMap[d] && tagesMap[d][ma.name];
+        const beginn  = eintrag ? eintrag.beginn : null;
+        const ende    = eintrag ? eintrag.ende   : null;
+
+        // Zukünftige Tage ohne Eintrag überspringen
+        if (!eintrag && d > heuteDatum()) return;
+
+        const netto = nettoStunden(beginn, ende);
+        const unvoll = beginn && !ende;
+
+        // Filter: nur unvollständige
+        if (filterStatus === 'unvoll' && !unvoll) return;
+
+        // Fehlende Werktage einschließen
+        if (!eintrag && (dow === 6)) return;
+
+        rows.push({
+          datum: d,
+          dow,
+          ma: ma.name,
+          beginn,
+          ende,
+          netto,
+          unvoll
+        });
+      });
+    }
+
+    // Neuste zuerst
+    rows.sort(function(a, b) { return b.datum.localeCompare(a.datum) || a.ma.localeCompare(b.ma); });
+
+    tbody.innerHTML = '';
+    rows.forEach(function(r) {
+      const isSa = r.dow === 6;
+      const spaet = isSpaet(r.beginn);
+      const ueber = r.netto !== null && r.netto > 8;
+      const trKlasse = r.unvoll ? 'zeile-warnung' : (isSa ? 'zeile-samstag' : '');
+
+      let badge;
+      if (!r.beginn)   badge = '<span class="badge badge-fehlt">– Kein Eintrag</span>';
+      else if (r.unvoll) badge = '<span class="badge badge-fehlt">&#9888; Kein Ende</span>';
+      else if (spaet && ueber) badge = '<span class="badge badge-spaet">&#128308; Zu spät + Überstd.</span>';
+      else if (spaet)  badge = '<span class="badge badge-spaet">&#128308; Zu spät</span>';
+      else if (ueber)  badge = '<span class="badge badge-ueber">&#128992; Überstunden</span>';
+      else             badge = '<span class="badge badge-normal">&#10003; Normal</span>';
+
+      const beginnHTML = r.beginn
+        ? '<span class="' + (spaet ? 'td-rot' : '') + '">' + r.beginn + '</span>'
+        : '<span style="color:var(--text2)">–</span>';
+      const endeHTML = r.ende
+        ? r.ende
+        : '<span style="color:var(--text2)">–</span>';
+      const nettoHTML = r.netto !== null
+        ? '<span class="' + (ueber ? 'td-orange' : '') + '">' + formatH(r.netto) + '</span>'
+        : '–';
+
+      const aktionen = r.beginn
+        ? '<button class="btn-aktion" onclick="oeffneBearbeiten(\'' + r.ma.replace(/'/g,"\\'")+'\',\''+r.datum+'\')">&#9998;</button>'
+          + '<button class="btn-aktion del" onclick="loescheEintrag(\'' + r.ma.replace(/'/g,"\\'") + '\',\'' + r.datum + '\')">&#128465;</button>'
+        : '';
+
+      const tr = document.createElement('tr');
+      tr.className = trKlasse;
+      tr.innerHTML =
+        '<td>' + r.datum.split('-').reverse().join('.') + '</td>'
+        + '<td>' + tagNameLang(r.dow) + '</td>'
+        + '<td>' + r.ma + '</td>'
+        + '<td>' + beginnHTML + '</td>'
+        + '<td>' + endeHTML + '</td>'
+        + '<td>' + nettoHTML + '</td>'
+        + '<td>' + badge + '</td>'
+        + '<td>' + aktionen + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="lade-hinweis">Keine Einträge gefunden.</td></tr>';
+    }
+
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="8" class="lade-hinweis" style="color:var(--accent)">Fehler: ' + err.message + '</td></tr>';
+  }
+}
+
+// ── STEMPEL LÖSCHEN ──
+
+async function loescheEintrag(ma, datum) {
+  if (!confirm('Eintrag von ' + ma + ' am ' + datum + ' wirklich löschen?')) return;
+  const { error } = await sb.from('stamps')
+    .delete()
+    .eq('mitarbeiter', ma)
+    .eq('datum', datum);
+  if (error) { alert('Fehler: ' + error.message); return; }
+  invalidateCache();
+  ladeAlles();
+  // Falls Modal offen: auch neu laden
+  if (state.aktuellerModalMA === ma) oeffneMAModal(ma);
+}
+
+// ── STEMPEL BEARBEITEN ──
+
+async function oeffneBearbeiten(ma, datum) {
+  const stamps = await ladeMonatsStamps();
+  const tagesMap = baueTagesMap(stamps);
+  const eintrag = tagesMap[datum] && tagesMap[datum][ma];
+
+  document.getElementById('edit-ma').value          = ma;
+  document.getElementById('edit-datum-alt').value   = datum;
+  document.getElementById('edit-ma-anzeige').value  = ma;
+  document.getElementById('edit-datum').value       = datum;
+  document.getElementById('edit-beginn').value      = eintrag ? (eintrag.beginn || '') : '';
+  document.getElementById('edit-ende').value        = eintrag ? (eintrag.ende   || '') : '';
+  document.getElementById('edit-fehler').style.display = 'none';
+
+  document.getElementById('bearbeiten-modal').classList.add('offen');
+}
+
+async function speicherBearbeitung() {
+  const ma       = document.getElementById('edit-ma').value;
+  const datumAlt = document.getElementById('edit-datum-alt').value;
+  const datumNeu = document.getElementById('edit-datum').value;
+  const beginn   = document.getElementById('edit-beginn').value;
+  const ende     = document.getElementById('edit-ende').value;
+  const fehlerEl = document.getElementById('edit-fehler');
+
+  if (!beginn) {
+    fehlerEl.textContent = 'Bitte mindestens eine Beginn-Zeit eingeben.';
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    // Alte Stamps löschen
+    await sb.from('stamps').delete().eq('mitarbeiter', ma).eq('datum', datumAlt);
+
+    // Neue Stamps einfügen
+    const inserts = [{
+      id: Date.now(),
+      mitarbeiter: ma,
+      typ: 'beginn',
+      datum: datumNeu,
+      zeit: beginn
+    }];
+    if (ende) {
+      inserts.push({
+        id: Date.now() + 1,
+        mitarbeiter: ma,
+        typ: 'ende',
+        datum: datumNeu,
+        zeit: ende
+      });
+    }
+    const { error } = await sb.from('stamps').insert(inserts);
+    if (error) throw error;
+
+    invalidateCache();
+    schliesseModal('bearbeiten-modal');
+    ladeAlles();
+    if (state.aktuellerModalMA === ma) oeffneMAModal(ma);
+
+  } catch (err) {
+    fehlerEl.textContent = 'Fehler: ' + err.message;
+    fehlerEl.style.display = 'block';
+  }
+}
+
+// ── MITARBEITER-TAB ──
+
+function ladeMitarbeiterTab() {
+  const grid = document.getElementById('ma-karten-grid');
+  grid.innerHTML = '';
+
+  if (state.alleMitarbeiter.length === 0) {
+    grid.innerHTML = '<div class="lade-hinweis">Noch keine Mitarbeiter angelegt.</div>';
+    return;
+  }
+
+  state.alleMitarbeiter.forEach(function(ma) {
+    const eintritt = ma.eintrittsdatum
+      ? new Date(ma.eintrittsdatum + 'T12:00:00').toLocaleDateString('de-DE')
+      : (ma.created_at ? new Date(ma.created_at).toLocaleDateString('de-DE') : '–');
+    const nameSafe = ma.name.replace(/'/g,"\\'");
+    const pinAnzeige = ma.pin ? '●'.repeat(ma.pin.length) : '(kein PIN)';
+
+    const karte = document.createElement('div');
+    karte.className = 'ma-karte';
+    karte.innerHTML =
+      '<div class="ma-karte-name">' + ma.name + '</div>'
+      + '<div class="ma-karte-datum">Eintrittsdatum: ' + eintritt + '</div>'
+      + '<div class="ma-karte-pin">PIN: <span class="pin-anzeige" id="pin-anzeige-' + ma.id + '">' + pinAnzeige + '</span>'
+      + '<button class="pin-edit-btn" onclick="pinBearbeiten(' + ma.id + ',\'' + nameSafe + '\')">&#9998; PIN setzen</button></div>'
+      + '<div class="ma-karte-aktionen">'
+      + '<button class="btn-loeschen" onclick="loescheMA(\'' + nameSafe + '\')">Löschen</button>'
+      + '</div>';
+    grid.appendChild(karte);
+  });
+}
+
+async function addMA() {
+  const input = document.getElementById('neuer-ma-name');
+  const name  = input.value.trim();
+  const fehlerEl = document.getElementById('ma-fehler');
+  fehlerEl.style.display = 'none';
+
+  if (state.alleMitarbeiter.length >= 10) {
+    fehlerEl.textContent = 'Maximal 10 Mitarbeiter möglich. Bitte zuerst einen Mitarbeiter entfernen.';
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  if (!name) {
+    fehlerEl.textContent = 'Bitte einen Namen eingeben.';
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  const eintrittsdatum = document.getElementById('neuer-ma-eintritt').value || null;
+  const { error } = await sb.from('mitarbeiter').insert({ name, eintrittsdatum });
+  if (error) {
+    fehlerEl.textContent = 'Fehler: ' + (error.message.includes('unique') ? 'Dieser Name existiert bereits.' : error.message);
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  input.value = '';
+  document.getElementById('neuer-ma-eintritt').value = '';
+  await ladeMitarbeiter();
+  invalidateCache();
+}
+
+async function loescheMA(name) {
+  if (!confirm('Mitarbeiter "' + name + '" wirklich löschen?\n\nAcht: Alle Stempel-Daten dieses Mitarbeiters bleiben erhalten.')) return;
+  const { error } = await sb.from('mitarbeiter').delete().eq('name', name);
+  if (error) { alert('Fehler: ' + error.message); return; }
+  await ladeMitarbeiter();
+}
+
+async function pinBearbeiten(id, name) {
+  const neuerPin = prompt('Neuen PIN für "' + name + '" eingeben (4–6 Ziffern):\n(Leer lassen um PIN zu entfernen)');
+  if (neuerPin === null) return; // Abbrechen
+  if (neuerPin !== '' && (!/^\d{4,6}$/.test(neuerPin))) {
+    alert('PIN muss 4–6 Ziffern enthalten.');
+    return;
+  }
+  const { error } = await sb.from('mitarbeiter').update({ pin: neuerPin || null }).eq('id', id);
+  if (error) { alert('Fehler: ' + error.message); return; }
+  await ladeMitarbeiter();
+  ladeMitarbeiterTab();
+}
+
+// ── MITARBEITER-DETAIL-MODAL ──
+
+async function oeffneMAModal(name) {
+  state.aktuellerModalMA = name;
+  document.getElementById('modal-ma-name').textContent = name;
+  document.getElementById('ma-detail-modal').classList.add('offen');
+  document.getElementById('modal-stats').innerHTML = '<span class="spinner-inline"></span> Lade…';
+  document.getElementById('kalender-grid').innerHTML = '';
+  document.getElementById('modal-stamps-tbody') && (document.getElementById('modal-stamps-tbody').innerHTML = '');
+  document.getElementById('bewertung-ok').style.display = 'none';
+  // Tab immer auf "Alle Tage" zurücksetzen
+  document.querySelectorAll('.modal-reiter-inhalt').forEach(function(el) { el.style.display = 'none'; });
+  document.getElementById('modal-tab-alle').style.display = 'block';
+  document.querySelectorAll('.modal-reiter').forEach(function(b) { b.classList.remove('aktiv'); });
+  document.querySelector('.modal-reiter[onclick*="alle"]').classList.add('aktiv');
+  document.getElementById('modal-urlaub-jahr').textContent = state.jahr;
+
+  try {
+    invalidateCache(); // immer frische Daten beim Öffnen des Modals
+    await ladeUrlaubDaten(); // Urlaub-Daten immer neu laden
+    const stamps = await ladeMonatsStamps();
+    const maStamps = stamps.filter(function(s) { return s.mitarbeiter === name; });
+    const tagesMap = baueTagesMap(stamps);
+
+    // Stats berechnen
+    let tageWoche = 0, tageSa = 0, gesamtH = 0, ueberH = 0, zuSpaet = 0;
+    const anzTage = new Date(state.jahr, state.monat, 0).getDate();
+
+    for (let t = 1; t <= anzTage; t++) {
+      const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
+      const dow = new Date(state.jahr, state.monat - 1, t).getDay();
+      if (d > heuteDatum()) continue;
+      const eintrag = tagesMap[d] && tagesMap[d][name];
+      if (!eintrag || !eintrag.beginn) continue;
+      const netto = nettoStunden(eintrag.beginn, eintrag.ende);
+      if (dow === 6) {
+        tageSa++;
+        gesamtH += netto || 0;
+      } else if (dow >= 1 && dow <= 5) {
+        tageWoche++;
+        gesamtH += netto || 0;
+        if (netto !== null && netto > 8) ueberH += netto - 8;
+        if (isSpaet(eintrag.beginn)) zuSpaet++;
+      }
+    }
+
+    const werktage = sollStunden(state.monat, state.jahr) / 8;
+    const puenktlichkeit = tageWoche > 0 ? Math.round(((tageWoche - zuSpaet) / tageWoche) * 100) : 100;
+
+    // Stats anzeigen
+    document.getElementById('modal-stats').innerHTML =
+      stat(tageWoche, 'Tage Mo-Fr', 'gruen') +
+      stat(tageSa, 'Tage Sa', 'blau') +
+      stat(formatH(gesamtH), 'Gesamt-Std', 'gruen') +
+      stat(formatH(ueberH), 'Überstunden', ueberH > 0 ? 'orange' : '') +
+      stat(zuSpaet, 'Zu-spät-Tage', zuSpaet > 0 ? 'rot' : '') +
+      stat(puenktlichkeit + '%', 'Pünktlichkeit', puenktlichkeit >= 90 ? 'gruen' : 'orange');
+
+    // Urlaubs-Banner – direkt aus Datenbank laden (immer frisch)
+    const { data: frischerUrlaub } = await sb.from('urlaub').select('*')
+      .eq('mitarbeiter', name)
+      .gte('datum', state.jahr + '-01-01')
+      .lte('datum', state.jahr + '-12-31');
+    const maUrlaub = frischerUrlaub || [];
+    state.urlaub = state.urlaub.filter(function(u) { return u.mitarbeiter !== name; }).concat(maUrlaub);
+    const urlaubGenommen = maUrlaub.filter(function(u) { return u.typ === 'urlaub'; }).length;
+    const urlaubKrank    = maUrlaub.filter(function(u) { return u.typ === 'krank'; }).length;
+    const urlaubSonder   = maUrlaub.filter(function(u) { return u.typ === 'sonderurlaub'; }).length;
+    const urlaubRest     = 25 - urlaubGenommen;
+    document.getElementById('modal-urlaub-genommen').textContent = urlaubGenommen;
+    document.getElementById('modal-urlaub-krank').textContent    = urlaubKrank;
+    document.getElementById('modal-urlaub-sonder').textContent   = urlaubSonder;
+    document.getElementById('modal-urlaub-rest').textContent     = urlaubRest;
+
+    // Urlaubs-Liste rendern
+    renderUrlaubListe(name);
+
+    // Kalender
+    renderKalender(name, tagesMap);
+
+    // Bewertung laden
+    ladeBewertung(name);
+
+    // Tages-Daten sammeln
+    const maObj = state.alleMitarbeiter.find(function(m) { return m.name === name; });
+    const zeilen = [];
+    for (let t = 1; t <= anzTage; t++) {
+      const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
+      const dow = new Date(state.jahr, state.monat - 1, t).getDay();
+      if (dow === 0 || d > heuteDatum()) continue;
+      const eintrag = tagesMap[d] && tagesMap[d][name];
+      const beginn = eintrag ? eintrag.beginn : null;
+      const ende   = eintrag ? eintrag.ende   : null;
+      const netto  = nettoStunden(beginn, ende);
+      const sollH  = (dow >= 1 && dow <= 5) ? 8 : 0;  // Sa kein Soll
+      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : (dow >= 1 && dow <= 5 ? -8 : null);
+      zeilen.push({ d, dow, beginn, ende, netto, diff, isSa: dow === 6 });
+    }
+    zeilen.reverse();
+
+    function zeileTr(z, extraSpalte) {
+      const spaet  = isSpaet(z.beginn);
+      const ueber  = z.diff !== null && z.diff > 0;
+      const minus  = z.diff !== null && z.diff < 0;
+      const unvoll = z.beginn && !z.ende;
+      let badge;
+      if (!z.beginn)   badge = '<span class="badge" style="background:rgba(100,100,100,0.2);color:#888">Kein Eintrag</span>';
+      else if (unvoll) badge = '<span class="badge badge-fehlt">&#9888; Kein Ende</span>';
+      else if (spaet)  badge = '<span class="badge badge-spaet">&#128308; Zu spät</span>';
+      else if (ueber)  badge = '<span class="badge badge-ueber">&#128992; Überstd.</span>';
+      else             badge = '<span class="badge badge-normal">&#10003;</span>';
+      const diffTxt = z.diff !== null ? (z.diff > 0 ? '+' : '') + formatH(z.diff) : '–';
+      const diffKl  = z.diff > 0 ? 'td-orange' : (z.diff < 0 ? 'td-rot' : '');
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + z.d.split('-').reverse().join('.') + (z.isSa ? ' <span style="font-size:0.75rem;color:var(--blue)">[Sa]</span>' : '') + '</td>'
+        + '<td>' + tagName(z.dow) + '</td>'
+        + '<td class="' + (spaet ? 'td-rot' : '') + '">' + (z.beginn || '–') + '</td>'
+        + '<td>' + (z.ende || '–') + '</td>'
+        + '<td>' + (z.netto !== null ? formatH(z.netto) : '–') + '</td>'
+        + '<td class="' + diffKl + '"><strong>' + (extraSpalte === 'ueber' ? (z.diff > 0 ? '+' + formatH(z.diff) : '–') : extraSpalte === 'minus' ? (z.diff < 0 ? formatH(z.diff) : '–') : diffTxt) + '</strong></td>'
+        + (extraSpalte === 'alle' ? '<td>' + badge + '</td>' : '');
+      return tr;
+    }
+
+    // Tab: Alle Tage
+    const tbodyAlle = document.getElementById('modal-tbody-alle');
+    tbodyAlle.innerHTML = '';
+    if (zeilen.length === 0) {
+      tbodyAlle.innerHTML = '<tr><td colspan="7" class="lade-hinweis">Keine Einträge für diesen Monat gefunden.</td></tr>';
+    } else {
+      zeilen.forEach(function(z) { tbodyAlle.appendChild(zeileTr(z, 'alle')); });
+    }
+
+    // Tab: Überstunden
+    const tbodyUeber = document.getElementById('modal-tbody-ueber');
+    tbodyUeber.innerHTML = '';
+    const ueberZeilen = zeilen.filter(function(z) { return z.diff !== null && z.diff > 0; });
+    if (ueberZeilen.length === 0) tbodyUeber.innerHTML = '<tr><td colspan="6" class="lade-hinweis">Keine Überstunden in diesem Monat.</td></tr>';
+    else ueberZeilen.forEach(function(z) { tbodyUeber.appendChild(zeileTr(z, 'ueber')); });
+
+    // Tab: Minusstunden
+    const tbodyMinus = document.getElementById('modal-tbody-minus');
+    tbodyMinus.innerHTML = '';
+    const minusZeilen = zeilen.filter(function(z) { return z.diff !== null && z.diff < 0; });
+    if (minusZeilen.length === 0) tbodyMinus.innerHTML = '<tr><td colspan="6" class="lade-hinweis">Keine Minusstunden in diesem Monat.</td></tr>';
+    else minusZeilen.forEach(function(z) { tbodyMinus.appendChild(zeileTr(z, 'minus')); });
+
+    // Tab: Zusammenfassung
+    const totalUeber = zeilen.reduce(function(s,z){ return s + (z.diff > 0 ? z.diff : 0); }, 0);
+    const totalMinus = zeilen.reduce(function(s,z){ return s + (z.diff < 0 ? z.diff : 0); }, 0);
+    const totalDiff  = +(totalUeber + totalMinus).toFixed(2);
+    const totalNetto = zeilen.reduce(function(s,z){ return s + (z.netto || 0); }, 0);
+    const arbeitstage = zeilen.filter(function(z){ return !z.isSa; }).length;
+    const gearbeitetTage = zeilen.filter(function(z){ return z.beginn; }).length;
+    const diffKl = totalDiff > 0 ? 'zusammen-diff-pos' : (totalDiff < 0 ? 'zusammen-diff-neg' : 'zusammen-diff-null');
+    const monate = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    document.getElementById('modal-zusammen-inhalt').innerHTML =
+      '<div style="font-size:0.85rem;color:var(--text2);margin-bottom:12px;">' + monate[state.monat-1] + ' ' + state.jahr + ' – ' + name + '</div>'
+      + '<div class="zusammen-grid">'
+      + '<div class="zusammen-karte"><div class="label">Gearbeitete Tage</div><div class="wert">' + gearbeitetTage + ' / ' + arbeitstage + '</div></div>'
+      + '<div class="zusammen-karte"><div class="label">Gesamtstunden</div><div class="wert">' + formatH(totalNetto) + '</div></div>'
+      + '<div class="zusammen-karte"><div class="label">Überstunden gesamt</div><div class="wert td-orange">+' + formatH(totalUeber) + '</div></div>'
+      + '<div class="zusammen-karte"><div class="label">Minusstunden gesamt</div><div class="wert td-rot">' + formatH(totalMinus) + '</div></div>'
+      + '</div>'
+      + '<div class="zusammen-karte"><div class="label">Differenz zum Ende des Monats</div>'
+      + '<div class="wert ' + diffKl + '">' + (totalDiff > 0 ? '+' : '') + formatH(totalDiff) + '</div>'
+      + '<div style="font-size:0.8rem;color:var(--text2);margin-top:6px;">'
+      + (totalDiff > 0 ? 'Mitarbeiter hat ' + formatH(totalDiff) + ' Überstunden angesammelt.'
+        : totalDiff < 0 ? 'Mitarbeiter hat ' + formatH(Math.abs(totalDiff)) + ' Minusstunden.'
+        : 'Mitarbeiter ist exakt auf Soll.')
+      + '</div></div>';
+
+  } catch (err) {
+    document.getElementById('modal-stats').innerHTML = '<span style="color:var(--accent)">Fehler: ' + err.message + '</span>';
+  }
+}
+
+function stat(wert, bez, farbe) {
+  return '<div class="modal-stat">'
+    + '<div class="wert' + (farbe ? ' td-' + farbe : '') + '">' + wert + '</div>'
+    + '<div class="bez">' + bez + '</div>'
+    + '</div>';
+}
+
+// ── MINI-KALENDER ──
+
+function renderKalender(name, tagesMap) {
+  const grid = document.getElementById('kalender-grid');
+  grid.innerHTML = '';
+
+  // Kopfzeile
+  ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(function(t) {
+    const el = document.createElement('div');
+    el.className = 'kalender-kopf';
+    el.textContent = t;
+    grid.appendChild(el);
+  });
+
+  const erstesTag = new Date(state.jahr, state.monat - 1, 1);
+  // ISO-Wochentag: Mo=0 ... So=6
+  let startOffset = erstesTag.getDay() - 1;
+  if (startOffset < 0) startOffset = 6;
+
+  // Leere Felder davor
+  for (let i = 0; i < startOffset; i++) {
+    const el = document.createElement('div');
+    el.className = 'kal-tag kal-leer';
+    grid.appendChild(el);
+  }
+
+  const anzTage = new Date(state.jahr, state.monat, 0).getDate();
+
+  // Urlaubs-Map für diesen MA im aktuellen Monat
+  const urlaubMap = {};
+  state.urlaub.forEach(function(u) {
+    if (u.mitarbeiter === name) {
+      urlaubMap[u.datum] = u.typ;
+    }
+  });
+
+  for (let t = 1; t <= anzTage; t++) {
+    const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
+    const dow = new Date(state.jahr, state.monat - 1, t).getDay();
+    const isSa = dow === 6;
+    const isSo = dow === 0;
+    const zukunft = d > heuteDatum();
+    const eintrag = tagesMap[d] && tagesMap[d][name];
+    const urlaubTyp = urlaubMap[d];
+
+    const el = document.createElement('div');
+    el.className = 'kal-tag tooltip-wrap';
+
+    let klasse = 'kal-leer';
+    let stdText = '';
+    let tooltip = '';
+
+    if (isSo) {
+      klasse = 'kal-wochenende';
+    } else if (urlaubTyp && !eintrag) {
+      // Urlaub oder Krank eintragen – hat Vorrang wenn kein Stempel
+      if (urlaubTyp === 'urlaub') {
+        klasse = 'kal-urlaub';
+        stdText = 'U';
+        tooltip = 'Urlaub';
+      } else if (urlaubTyp === 'krank') {
+        klasse = 'kal-krank';
+        stdText = 'K';
+        tooltip = 'Krank';
+      } else {
+        klasse = 'kal-urlaub';
+        stdText = 'S';
+        tooltip = 'Sonderurlaub';
+      }
+    } else if (zukunft) {
+      klasse = 'kal-leer';
+    } else if (eintrag && eintrag.beginn) {
+      const netto = nettoStunden(eintrag.beginn, eintrag.ende);
+      stdText = netto !== null ? formatH(netto) : '▶';
+      const spaet = isSpaet(eintrag.beginn);
+      const ueber = netto !== null && netto > 8;
+      if (isSa)        klasse = 'kal-samstag';
+      else if (spaet)  klasse = 'kal-spaet';
+      else if (ueber)  klasse = 'kal-ueber';
+      else             klasse = 'kal-normal';
+
+      tooltip = eintrag.beginn + ' – ' + (eintrag.ende || '?');
+      if (netto !== null) tooltip += ' | ' + formatH(netto);
+    } else if (!isSa) {
+      klasse = 'kal-fehlt';
+      stdText = '–';
+    }
+
+    el.classList.add(klasse);
+    el.innerHTML =
+      '<div class="tag-num">' + t + '</div>'
+      + (stdText ? '<div class="tag-std">' + stdText + '</div>' : '')
+      + (tooltip ? '<div class="tooltip">' + tooltip + '</div>' : '');
+
+    grid.appendChild(el);
+  }
+}
+
+// ── BEWERTUNG ──
+
+async function ladeBewertung(ma) {
+  const monatKey = pad(state.monat) + '-' + state.jahr;
+  document.getElementById('bewertung-titel').textContent = 'Bewertung – ' + monatName(state.monat, state.jahr);
+
+  const { data } = await sb.from('bewertungen')
+    .select('*')
+    .eq('mitarbeiter', ma)
+    .eq('monat', monatKey)
+    .single();
+
+  state.aktuellerStern = data ? data.sterne : 0;
+  document.getElementById('bewertung-notiz').value = data ? (data.notiz || '') : '';
+  renderSterne(state.aktuellerStern);
+}
+
+function setStern(n) {
+  state.aktuellerStern = n;
+  renderSterne(n);
+}
+
+function renderSterne(n) {
+  document.querySelectorAll('.stern').forEach(function(s) {
+    s.classList.toggle('aktiv', parseInt(s.dataset.n) <= n);
+  });
+}
+
+async function speicherBewertung() {
+  const ma       = state.aktuellerModalMA;
+  const monatKey = pad(state.monat) + '-' + state.jahr;
+  const notiz    = document.getElementById('bewertung-notiz').value;
+  const sterne   = state.aktuellerStern;
+
+  const { error } = await sb.from('bewertungen').upsert({
+    mitarbeiter: ma,
+    monat: monatKey,
+    notiz: notiz,
+    sterne: sterne,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'mitarbeiter,monat' });
+
+  if (error) {
+    alert('Fehler beim Speichern: ' + error.message);
+    return;
+  }
+
+  const okEl = document.getElementById('bewertung-ok');
+  okEl.style.display = 'inline';
+  setTimeout(function() { okEl.style.display = 'none'; }, 3000);
+}
+
+// ── URLAUB VERWALTEN ──
+
+function renderUrlaubListe(name) {
+  const container = document.getElementById('urlaub-liste');
+  const maUrlaub = state.urlaub
+    .filter(function(u) { return u.mitarbeiter === name; })
+    .sort(function(a, b) { return a.datum.localeCompare(b.datum); });
+
+  if (maUrlaub.length === 0) {
+    container.innerHTML = '<div style="color:var(--text2);font-size:0.82rem;padding:6px 0">Noch kein Urlaub eingetragen.</div>';
+    return;
+  }
+
+  const typBez = { urlaub: 'Urlaub', krank: 'Krank', sonderurlaub: 'Sonderurlaub' };
+  container.innerHTML = maUrlaub.map(function(u) {
+    const datumDE = u.datum.split('-').reverse().join('.');
+    return '<div class="urlaub-zeile">'
+      + '<span>' + datumDE + '</span>'
+      + '<span class="urlaub-typ-badge urlaub-typ-' + u.typ + '">' + (typBez[u.typ] || u.typ) + '</span>'
+      + '<button class="urlaub-del-btn" onclick="loescheUrlaub(' + u.id + ')">&#215;</button>'
+      + '</div>';
+  }).join('');
+}
+
+async function urlaubEintragen() {
+  const von  = document.getElementById('urlaub-von').value;
+  const bis  = document.getElementById('urlaub-bis').value;
+  const typ  = document.getElementById('urlaub-typ').value;
+  const name = state.aktuellerModalMA;
+
+  if (!von || !bis || !name) {
+    alert('Bitte Von- und Bis-Datum auswählen.');
+    return;
+  }
+  if (bis < von) {
+    alert('Das Bis-Datum muss nach dem Von-Datum liegen.');
+    return;
+  }
+
+  // Alle Werktage zwischen von und bis sammeln
+  const inserts = [];
+  const cur = new Date(von);
+  const end = new Date(bis);
+  while (cur <= end) {
+    const dow = cur.getDay();
+    if (dow >= 1 && dow <= 5) { // Mo-Fr
+      const ds = cur.getFullYear() + '-' + pad(cur.getMonth() + 1) + '-' + pad(cur.getDate());
+      inserts.push({ mitarbeiter: name, datum: ds, typ: typ });
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  if (inserts.length === 0) {
+    alert('Kein Werktag im gewählten Zeitraum gefunden.');
+    return;
+  }
+
+  // Vorhandene Einträge löschen und neu einfügen (zuverlässiger als upsert)
+  const daten = inserts.map(function(i) { return i.datum; });
+  await sb.from('urlaub').delete().eq('mitarbeiter', name).in('datum', daten);
+  const { error } = await sb.from('urlaub').insert(inserts);
+  if (error) {
+    alert('Fehler beim Eintragen: ' + error.message);
+    return;
+  }
+
+  document.getElementById('urlaub-von').value = '';
+  document.getElementById('urlaub-bis').value = '';
+  // Daten neu laden und Modal aktualisieren
+  await ladeUrlaubDaten();
+  oeffneMAModal(name);
+}
+
+async function loescheUrlaub(id) {
+  if (!confirm('Diesen Urlaubseintrag wirklich löschen?')) return;
+  const { error } = await sb.from('urlaub').delete().eq('id', id);
+  if (error) { alert('Fehler: ' + error.message); return; }
+  await ladeUrlaubDaten();
+  oeffneMAModal(state.aktuellerModalMA);
+}
+
+// ── JAHRESÜBERSICHT ──
+
+function jahresAendern(delta) {
+  state.jahresJahr += delta;
+  document.getElementById('jahres-label').textContent = state.jahresJahr;
+  ladeJahresübersicht();
+}
+
+// ── SCHULFERIEN RHEINLAND-PFALZ ──
+const SCHULFERIEN_RLP = {
+  2025: [
+    { von: '2025-04-14', bis: '2025-04-25', name: 'Osterferien' },
+    { von: '2025-07-07', bis: '2025-08-15', name: 'Sommerferien' },
+    { von: '2025-10-13', bis: '2025-10-24', name: 'Herbstferien' },
+    { von: '2025-12-22', bis: '2026-01-07', name: 'Weihnachtsferien' }
+  ],
+  2026: [
+    { von: '2026-01-01', bis: '2026-01-07', name: 'Weihnachtsferien (Forts.)' },
+    { von: '2026-03-30', bis: '2026-04-10', name: 'Osterferien' },
+    { von: '2026-06-29', bis: '2026-08-07', name: 'Sommerferien' },
+    { von: '2026-10-05', bis: '2026-10-16', name: 'Herbstferien' },
+    { von: '2026-12-23', bis: '2027-01-08', name: 'Weihnachtsferien' }
+  ],
+  2027: [
+    { von: '2027-01-01', bis: '2027-01-08', name: 'Weihnachtsferien (Forts.)' }
+  ]
+};
+
+function istSchulferientag(datum, jahr) {
+  const ferien = SCHULFERIEN_RLP[jahr] || [];
+  return ferien.find(function(f) { return datum >= f.von && datum <= f.bis; }) || null;
+}
+
+async function ladeJahresübersicht() {
+  const container = document.getElementById('jahres-inhalt');
+  container.innerHTML = '<div class="lade-hinweis"><span class="spinner-inline"></span> Lade Jahresdaten…</div>';
+
+  try {
+    // Stempel für ganzes Jahr laden
+    const { data: stampsJahr } = await sb.from('stamps')
+      .select('*')
+      .gte('datum', state.jahresJahr + '-01-01')
+      .lte('datum', state.jahresJahr + '-12-31')
+      .order('datum')
+      .order('zeit');
+    const alleStamps = stampsJahr || [];
+
+    // Urlaub für dieses Jahr laden
+    const { data: urlaubJahr } = await sb.from('urlaub')
+      .select('*')
+      .gte('datum', state.jahresJahr + '-01-01')
+      .lte('datum', state.jahresJahr + '-12-31');
+    const alleUrlaub = urlaubJahr || [];
+
+    const monatNamen = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+    let html = '';
+
+    state.alleMitarbeiter.forEach(function(ma) {
+      const maName = ma.name;
+
+      // Stempel-Map aufbauen: datum → {beginn, ende}
+      const stampMap = {};
+      alleStamps.forEach(function(s) {
+        if (s.mitarbeiter !== maName) return;
+        if (!stampMap[s.datum]) stampMap[s.datum] = { beginn: null, ende: null };
+        if (s.typ === 'beginn') stampMap[s.datum].beginn = s.zeit.substring(0, 5);
+        if (s.typ === 'ende')   stampMap[s.datum].ende   = s.zeit.substring(0, 5);
+      });
+
+      // Urlaub-Map: datum → typ
+      const urlaubMapJahr = {};
+      alleUrlaub.forEach(function(u) {
+        if (u.mitarbeiter === maName) urlaubMapJahr[u.datum] = u.typ;
+      });
+
+      let gesamtArbeitstage = 0, gesamtStd = 0, gesamtSoll = 0, gesamtUeber = 0;
+      let gesamtUrlaub = 0, gesamtKrank = 0, gesamtSaEinsatz = 0, gesamtSchulferien = 0;
+
+      let tabelleRows = '';
+
+      for (let m = 1; m <= 12; m++) {
+        const anzTage = new Date(state.jahresJahr, m, 0).getDate();
+        let arbeitstage = 0, stdGearbeitet = 0, soll = 0;
+        let urlaubTage = 0, krankTage = 0, saTage = 0, schulferienTage = 0;
+        const urlaubDaten = [], krankDaten = [], schulferienNamen = new Set();
+
+        for (let t = 1; t <= anzTage; t++) {
+          const d = state.jahresJahr + '-' + pad(m) + '-' + pad(t);
+          const dow = new Date(state.jahresJahr, m - 1, t).getDay();
+          const isWerktag = dow >= 1 && dow <= 5;
+          const isSa = dow === 6;
+          const istZukunft = d > heuteDatum();
+
+          const stamp = stampMap[d];
+          const urlaubTyp = urlaubMapJahr[d];
+
+          // Schulferien zählen (Werktage)
+          if (isWerktag) {
+            const sf = istSchulferientag(d, state.jahresJahr);
+            if (sf) { schulferienTage++; schulferienNamen.add(sf.name); }
+          }
+
+          // Urlaub/Krank auch für Zukunft zählen (geplanter Urlaub soll sichtbar sein)
+          if (isWerktag && urlaubTyp) {
+            if (urlaubTyp === 'urlaub') { urlaubTage++; urlaubDaten.push(d); }
+            else if (urlaubTyp === 'krank') { krankTage++; krankDaten.push(d); }
+            else if (urlaubTyp === 'sonderurlaub') { urlaubTage++; urlaubDaten.push(d + '(S)'); }
+          }
+
+          // Stunden und Arbeitstage nur für vergangene Tage
+          if (istZukunft) continue;
+
+          if (isWerktag) {
+            soll += 8;
+            if (stamp && stamp.beginn) {
+              arbeitstage++;
+              const netto = nettoStunden(stamp.beginn, stamp.ende);
+              stdGearbeitet += netto || 0;
+            }
+          } else if (isSa && stamp && stamp.beginn) {
+            saTage++;
+            const netto = nettoStunden(stamp.beginn, stamp.ende);
+            stdGearbeitet += netto || 0;
+          }
+        }
+
+        const ueber = stdGearbeitet - (arbeitstage * 8);
+        gesamtArbeitstage += arbeitstage;
+        gesamtStd         += stdGearbeitet;
+        gesamtSoll        += soll;
+        gesamtUeber       += ueber;
+        gesamtUrlaub      += urlaubTage;
+        gesamtKrank       += krankTage;
+        gesamtSaEinsatz   += saTage;
+        gesamtSchulferien += schulferienTage;
+
+        const ueberKlasse = ueber > 0 ? 'td-orange' : (ueber < 0 ? 'td-rot' : '');
+        const ueberText   = (ueber > 0 ? '+' : '') + formatH(ueber);
+
+        tabelleRows +=
+          '<tr>'
+          + '<td>' + monatNamen[m - 1] + '</td>'
+          + '<td>' + arbeitstage + '</td>'
+          + '<td>' + formatH(stdGearbeitet) + '</td>'
+          + '<td>' + formatH(soll) + '</td>'
+          + '<td class="' + ueberKlasse + '"><strong>' + ueberText + '</strong></td>'
+          + '<td>' + (urlaubTage > 0 ? '<span style="color:#ffd700;font-weight:700">' + urlaubTage + ' Tag' + (urlaubTage > 1 ? 'e' : '') + '</span><br><span style="font-size:0.75rem;color:#a0946a">' + urlaubDaten.map(function(d){ return d.substring(8,10)+'.'+d.substring(5,7)+'.'; }).join(', ') + '</span>' : '–') + '</td>'
+          + '<td>' + (krankTage > 0 ? '<span style="color:#c77dff;font-weight:700">' + krankTage + ' Tag' + (krankTage > 1 ? 'e' : '') + '</span><br><span style="font-size:0.75rem;color:#9a80b5">' + krankDaten.map(function(d){ return d.substring(8,10)+'.'+d.substring(5,7)+'.'; }).join(', ') + '</span>' : '–') + '</td>'
+          + '<td>' + (saTage > 0 ? '<span class="td-blau">' + saTage + '</span>' : '–') + '</td>'
+          + '<td>' + (schulferienTage > 0 ? '<span style="color:#4ecdc4;font-weight:700">' + schulferienTage + ' Tage</span><br><span style="font-size:0.72rem;color:#3aada5">' + Array.from(schulferienNamen).join(', ') + '</span>' : '–') + '</td>'
+          + '</tr>';
+      }
+
+      // Gesamt-Zeile
+      const gesamtUeberKlasse = gesamtUeber > 0 ? 'td-orange' : (gesamtUeber < 0 ? 'td-rot' : '');
+      const gesamtUeberText   = (gesamtUeber > 0 ? '+' : '') + formatH(gesamtUeber);
+
+      tabelleRows +=
+        '<tr style="border-top:2px solid var(--border);font-weight:700">'
+        + '<td><strong>Gesamt</strong></td>'
+        + '<td><strong>' + gesamtArbeitstage + '</strong></td>'
+        + '<td><strong>' + formatH(gesamtStd) + '</strong></td>'
+        + '<td><strong>' + formatH(gesamtSoll) + '</strong></td>'
+        + '<td class="' + gesamtUeberKlasse + '"><strong>' + gesamtUeberText + '</strong></td>'
+        + '<td><strong style="color:#ffd700">' + (gesamtUrlaub || '–') + '</strong></td>'
+        + '<td><strong style="color:#c77dff">' + (gesamtKrank || '–') + '</strong></td>'
+        + '<td><strong class="td-blau">' + (gesamtSaEinsatz || '–') + '</strong></td>'
+        + '<td><strong style="color:#4ecdc4">' + gesamtSchulferien + ' Tage</strong></td>'
+        + '</tr>';
+
+      // Urlaubs-Auswertung für ganzes Jahr
+      const urlaubGenommenJahr    = alleUrlaub.filter(function(u) { return u.mitarbeiter === maName && u.typ === 'urlaub'; }).length;
+      const urlaubKrankJahr       = alleUrlaub.filter(function(u) { return u.mitarbeiter === maName && u.typ === 'krank'; }).length;
+      const urlaubSonderJahr      = alleUrlaub.filter(function(u) { return u.mitarbeiter === maName && u.typ === 'sonderurlaub'; }).length;
+      const urlaubRestJahr        = 25 - urlaubGenommenJahr;
+
+      html +=
+        '<div class="jahres-ma-sektion">'
+        + '<div class="jahres-ma-header">' + maName + '</div>'
+        + '<div class="tabelle-wrap" style="border:none;border-radius:0">'
+        + '<table>'
+        + '<thead><tr>'
+        + '<th>Monat</th><th>Arbeitstage</th><th>Std. gearbeitet</th><th>Std. Soll</th>'
+        + '<th>Über-/Unterst.</th><th>Urlaub</th><th>Krank</th><th>Sa-Tage</th><th style="color:#4ecdc4">Schulferien RLP</th>'
+        + '</tr></thead>'
+        + '<tbody>' + tabelleRows + '</tbody>'
+        + '</table>'
+        + '</div>'
+        + '<div class="jahres-urlaub-summary">'
+        + 'Jahresanspruch: <strong>25</strong> &nbsp;|&nbsp; '
+        + 'Urlaub genommen: <strong style="color:#ffd700">' + urlaubGenommenJahr + '</strong> &nbsp;|&nbsp; '
+        + 'Krank: <strong style="color:#c77dff">' + urlaubKrankJahr + '</strong> &nbsp;|&nbsp; '
+        + 'Sonderurlaub: <strong>' + urlaubSonderJahr + '</strong> &nbsp;|&nbsp; '
+        + 'Verbleibend: <strong class="jahres-rest">' + urlaubRestJahr + '</strong>'
+        + '</div>'
+        + '</div>';
+    });
+
+    if (state.alleMitarbeiter.length === 0) {
+      html = '<div class="lade-hinweis">Keine Mitarbeiter gefunden.</div>';
+    }
+
+    container.innerHTML = html;
+
+  } catch (err) {
+    container.innerHTML = '<div class="lade-hinweis" style="color:var(--accent)">Fehler: ' + err.message + '</div>';
+  }
+}
+
+// ── TABS ──
+
+function zeigeTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('aktiv'); });
+  document.querySelectorAll('.tab-inhalt').forEach(function(t) { t.classList.remove('aktiv'); });
+  btn.classList.add('aktiv');
+  document.getElementById('tab-' + tab).classList.add('aktiv');
+
+  if (tab === 'detail') ladeDetail();
+  if (tab === 'mitarbeiter') ladeMitarbeiterTab();
+  if (tab === 'jahres') {
+    state.jahresJahr = state.jahr;
+    document.getElementById('jahres-label').textContent = state.jahresJahr;
+    ladeJahresübersicht();
+  }
+  if (tab === 'kundenzeiten') initKundenzeiten();
+}
+
+// ── MODAL ──
+
+function schliesseModal(id) {
+  document.getElementById(id).classList.remove('offen');
+  if (id === 'ma-detail-modal') state.aktuellerModalMA = null;
+}
+
+function druckeMonat() {
+  const monate = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  document.getElementById('print-monat-label').textContent =
+    'Monatsübersicht ' + monate[state.monat - 1] + ' ' + state.jahr + ' – Erstellt am ' + new Date().toLocaleDateString('de-DE');
+  window.print();
+}
+
+function zeigeModalReiter(id, btn) {
+  document.querySelectorAll('.modal-reiter-inhalt').forEach(function(el) { el.style.display = 'none'; });
+  document.querySelectorAll('.modal-reiter').forEach(function(b) { b.classList.remove('aktiv'); });
+  document.getElementById('modal-tab-' + id).style.display = 'block';
+  btn.classList.add('aktiv');
+}
+
+function druckeMAMonat() {
+  const monate = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  // Aktiven Reiter ermitteln
+  const aktiv = document.querySelector('.modal-reiter.aktiv');
+  const rTab = aktiv ? aktiv.textContent : 'Alle Tage';
+  document.getElementById('print-monat-label').textContent =
+    state.aktuellerModalMA + ' – ' + rTab + ' – ' + monate[state.monat-1] + ' ' + state.jahr
+    + ' – Erstellt am ' + new Date().toLocaleDateString('de-DE');
+  // Kurz das Modal aus dem Weg räumen und drucken
+  const modal = document.getElementById('ma-detail-modal');
+  modal.classList.add('print-modus');
+  window.addEventListener('afterprint', function handler() {
+    modal.classList.remove('print-modus');
+    window.removeEventListener('afterprint', handler);
+  });
+  window.print();
+}
+
+// ── KUNDENZEITEN ──
+
+let kzDaten = [];
+
+function initKundenzeiten() {
+  // Monats-Filter befüllen (letzten 12 Monate)
+  const select = document.getElementById('kz-filter-monat');
+  select.innerHTML = '';
+  const heute = new Date();
+  for (let i = 0; i < 13; i++) {
+    const d = new Date(heute.getFullYear(), heute.getMonth() - i, 1);
+    const val = d.getFullYear() + '-' + pad(d.getMonth() + 1);
+    const monate = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    const label = monate[d.getMonth()] + ' ' + d.getFullYear();
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = label;
+    if (i === 0) opt.selected = true;
+    select.appendChild(opt);
+  }
+  // MA-Filter befüllen
+  const maSel = document.getElementById('kz-filter-ma');
+  maSel.innerHTML = '<option value="">Alle Mitarbeiter</option>';
+  state.alleMitarbeiter.forEach(function(ma) {
+    const opt = document.createElement('option');
+    opt.value = ma.name;
+    opt.textContent = ma.name;
+    maSel.appendChild(opt);
+  });
+  ladeKundenzeiten();
+}
+
+async function ladeKundenzeiten() {
+  const monat = document.getElementById('kz-filter-monat').value;
+  const tbody = document.getElementById('kz-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px"><span class="spinner-inline"></span> Lade…</td></tr>';
+
+  const vonDatum = monat + '-01';
+  const bisDatum = monat + '-31';
+
+  try {
+    const { data, error } = await sb.from('kundenzeiten')
+      .select('*')
+      .gte('datum', vonDatum)
+      .lte('datum', bisDatum)
+      .order('datum', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    kzDaten = data || [];
+    renderKundenzeiten();
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--accent);padding:16px">' + err.message + '</td></tr>';
+  }
+}
+
+function renderKundenzeiten() {
+  const tbody  = document.getElementById('kz-tbody');
+  const maSel  = document.getElementById('kz-filter-ma').value;
+  const kSuch  = document.getElementById('kz-filter-kunde').value.toLowerCase();
+
+  const gefiltert = kzDaten.filter(function(e) {
+    if (maSel && e.mitarbeiter !== maSel) return false;
+    if (kSuch && !e.kunde.toLowerCase().includes(kSuch)) return false;
+    return true;
+  });
+
+  if (gefiltert.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:20px">Keine Einträge gefunden.</td></tr>';
+    document.getElementById('kz-zusammenfassung').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  gefiltert.forEach(function(e) {
+    const von = e.von ? e.von.substring(0,5) : '–';
+    const bis = e.bis ? e.bis.substring(0,5) : '–';
+    const erstelltAm = e.created_at
+      ? new Date(e.created_at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
+      : '–';
+    const updatedAm = e.updated_at && e.updated_at !== e.created_at
+      ? '<br><small style="color:var(--orange)">Geänd.: ' + new Date(e.updated_at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) + '</small>'
+      : '';
+    const datumDe = e.datum ? e.datum.split('-').reverse().join('.') : '–';
+
+    const tr = document.createElement('tr');
+    if (e.verarbeitet) tr.style.opacity = '0.45';
+    tr.innerHTML =
+      '<td style="text-align:center">'
+      + '<input type="checkbox" ' + (e.verarbeitet ? 'checked' : '') + ' onchange="toggleVerarbeitet(' + e.id + ',this)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--green)">'
+      + '</td>'
+      + '<td>' + datumDe + '</td>'
+      + '<td>' + escAdminHtml(e.mitarbeiter) + '</td>'
+      + '<td><strong>' + (e.verarbeitet ? '<span style="text-decoration:line-through;color:var(--text2)">' + escAdminHtml(e.kunde) + '</span>' : escAdminHtml(e.kunde)) + '</strong></td>'
+      + '<td style="white-space:nowrap">' + von + '–' + bis + '</td>'
+      + '<td class="std-cell">' + (e.stunden || 0).toFixed(1) + ' Std</td>'
+      + '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escAdminHtml(e.taetigkeit||'') + '">' + escAdminHtml(e.taetigkeit || '–') + '</td>'
+      + '<td style="font-size:0.8rem;color:var(--text2)">' + erstelltAm + '<br><small>von ' + escAdminHtml(e.erstellt_von) + '</small>' + updatedAm + '</td>'
+      + '<td class="aktionen-cell">'
+      + '<button class="kz-btn-verlauf" onclick="zeigeVerlauf(' + e.id + ',\'' + escAdminHtml(e.kunde) + '\')">&#128221; Verlauf</button>'
+      + '<button class="kz-btn-bearbeiten" onclick="oeffneKzEdit(' + e.id + ')">&#9998;</button>'
+      + '<button class="kz-btn-del" onclick="loescheKz(' + e.id + ')">&#10005;</button>'
+      + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  // Zusammenfassung nach Kunde
+  const kundenMap = {};
+  gefiltert.forEach(function(e) {
+    if (!kundenMap[e.kunde]) kundenMap[e.kunde] = { std: 0, eintraege: 0 };
+    kundenMap[e.kunde].std += (e.stunden || 0);
+    kundenMap[e.kunde].eintraege++;
+  });
+  const zusammen = document.getElementById('kz-zusammenfassung');
+  const kunden = Object.keys(kundenMap).sort(function(a,b) { return kundenMap[b].std - kundenMap[a].std; });
+  zusammen.innerHTML = '<div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Zusammenfassung nach Kunde</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">'
+    + kunden.map(function(k) {
+        return '<div class="kz-kunde-karte">'
+          + '<div class="kunde-name">' + escAdminHtml(k) + '</div>'
+          + '<div class="kunde-std">' + kundenMap[k].std.toFixed(1) + ' Std</div>'
+          + '<div class="kunde-info">' + kundenMap[k].eintraege + ' Eintrag/Einträge</div>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+}
+
+async function toggleVerarbeitet(id, checkbox) {
+  const verarbeitet = checkbox.checked;
+  const tr = checkbox.closest('tr');
+  try {
+    const { error } = await sb.from('kundenzeiten').update({ verarbeitet }).eq('id', id);
+    if (error) throw error;
+    tr.style.opacity = verarbeitet ? '0.45' : '1';
+    // Kundenname durchstreichen/normal
+    const kundeEl = tr.querySelector('td:nth-child(4) strong');
+    if (kundeEl) {
+      const text = kundeEl.textContent;
+      kundeEl.innerHTML = verarbeitet
+        ? '<span style="text-decoration:line-through;color:var(--text2)">' + escAdminHtml(text) + '</span>'
+        : escAdminHtml(text);
+    }
+    // Cache aktualisieren
+    const idx = kzDaten.findIndex(function(e) { return e.id === id; });
+    if (idx !== -1) kzDaten[idx].verarbeitet = verarbeitet;
+  } catch (err) {
+    checkbox.checked = !verarbeitet; // zurücksetzen bei Fehler
+    alert('Fehler: ' + err.message);
+  }
+}
+
+function escAdminHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loescheKz(id) {
+  if (!confirm('Eintrag wirklich löschen?')) return;
+  const { error } = await sb.from('kundenzeiten').delete().eq('id', id);
+  if (error) { alert('Fehler: ' + error.message); return; }
+  await ladeKundenzeiten();
+}
+
+async function oeffneKzEdit(id) {
+  const e = kzDaten.find(function(x) { return x.id === id; });
+  if (!e) return;
+  document.getElementById('kz-edit-id').value = id;
+  document.getElementById('kz-edit-ma').value = e.mitarbeiter;
+  document.getElementById('kz-edit-kunde').value = e.kunde || '';
+  document.getElementById('kz-edit-datum').value = e.datum || '';
+  document.getElementById('kz-edit-von').value = (e.von || '').substring(0,5);
+  document.getElementById('kz-edit-bis').value = (e.bis || '').substring(0,5);
+  document.getElementById('kz-edit-taet').value = e.taetigkeit || '';
+  document.getElementById('kz-edit-modal').classList.add('offen');
+}
+
+async function speichereKzEdit() {
+  const id      = parseInt(document.getElementById('kz-edit-id').value);
+  const kunde   = document.getElementById('kz-edit-kunde').value.trim();
+  const datum   = document.getElementById('kz-edit-datum').value;
+  const von     = document.getElementById('kz-edit-von').value;
+  const bis     = document.getElementById('kz-edit-bis').value;
+  const taet    = document.getElementById('kz-edit-taet').value.trim();
+
+  if (!kunde || !datum || !von || !bis) { alert('Bitte alle Pflichtfelder ausfüllen.'); return; }
+
+  const [vh, vm] = von.split(':').map(Number);
+  const [bh, bm] = bis.split(':').map(Number);
+  const minuten = (bh * 60 + bm) - (vh * 60 + vm);
+  if (minuten <= 0) { alert('"Bis" muss nach "Von" liegen.'); return; }
+  const stunden = +(minuten / 60).toFixed(2);
+
+  // Alten Eintrag für Verlauf
+  const alt = kzDaten.find(function(x) { return x.id === id; });
+  const aenderungen = [];
+  if (alt) {
+    if (alt.kunde !== kunde) aenderungen.push({ feld: 'Kunde', alt: alt.kunde, neu: kunde });
+    if (alt.datum !== datum) aenderungen.push({ feld: 'Datum', alt: alt.datum, neu: datum });
+    if ((alt.von||'').substring(0,5) !== von) aenderungen.push({ feld: 'Von', alt: (alt.von||'').substring(0,5), neu: von });
+    if ((alt.bis||'').substring(0,5) !== bis) aenderungen.push({ feld: 'Bis', alt: (alt.bis||'').substring(0,5), neu: bis });
+    if ((alt.taetigkeit||'') !== taet) aenderungen.push({ feld: 'Tätigkeit', alt: alt.taetigkeit||'', neu: taet });
+  }
+
+  const { error } = await sb.from('kundenzeiten').update({
+    kunde, datum, von, bis, stunden, taetigkeit: taet, updated_at: new Date().toISOString()
+  }).eq('id', id);
+  if (error) { alert('Fehler: ' + error.message); return; }
+
+  // Verlauf speichern
+  if (aenderungen.length > 0) {
+    const user = (await sb.auth.getUser()).data.user;
+    const adminName = user ? user.email : 'Admin';
+    await sb.from('kundenzeiten_verlauf').insert({
+      eintrag_id: id, geaendert_von: adminName, aenderungen: { felder: aenderungen }
+    });
+  }
+
+  schliesseModal('kz-edit-modal');
+  await ladeKundenzeiten();
+}
+
+async function zeigeVerlauf(id, kunde) {
+  document.getElementById('kz-verlauf-info').textContent = 'Eintrag: ' + kunde;
+  document.getElementById('kz-verlauf-liste').innerHTML = '<div class="lade-hinweis"><span class="spinner-inline"></span> Lade…</div>';
+  document.getElementById('kz-verlauf-modal').classList.add('offen');
+
+  try {
+    const { data, error } = await sb.from('kundenzeiten_verlauf')
+      .select('*').eq('eintrag_id', id).order('geaendert_am', { ascending: false });
+    if (error) throw error;
+
+    const liste = document.getElementById('kz-verlauf-liste');
+    if (!data || data.length === 0) {
+      liste.innerHTML = '<div style="color:var(--text2);font-size:0.9rem;text-align:center;padding:16px">Keine Änderungen protokolliert.</div>';
+      return;
+    }
+
+    liste.innerHTML = data.map(function(v) {
+      const wann = new Date(v.geaendert_am).toLocaleString('de-DE');
+      const felder = (v.aenderungen && v.aenderungen.felder) ? v.aenderungen.felder : [];
+      return '<div class="verlauf-eintrag">'
+        + '<div class="verlauf-kopf">&#128221; ' + wann + ' – geändert von <strong>' + escAdminHtml(v.geaendert_von) + '</strong></div>'
+        + '<div class="verlauf-felder">'
+        + felder.map(function(f) {
+            return '<div class="verlauf-feld">'
+              + '<span class="feld-name">' + escAdminHtml(f.feld) + ':</span>'
+              + '<span class="feld-alt">' + escAdminHtml(String(f.alt)) + '</span>'
+              + '<span style="color:var(--text2)">→</span>'
+              + '<span class="feld-neu">' + escAdminHtml(String(f.neu)) + '</span>'
+              + '</div>';
+          }).join('')
+        + '</div></div>';
+    }).join('');
+  } catch (err) {
+    document.getElementById('kz-verlauf-liste').innerHTML = '<div style="color:var(--accent)">' + err.message + '</div>';
+  }
+}
+
+// Klick außerhalb schließt Modal
+document.querySelectorAll('.modal-bg').forEach(function(bg) {
+  bg.addEventListener('click', function(e) {
+    if (e.target === bg) bg.classList.remove('offen');
+  });
+});
+</script>
+</body>
+</html>

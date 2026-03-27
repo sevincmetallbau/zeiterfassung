@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Zeiterfassung – Sevinc Metallbau</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --accent: #e94560;
+      --accent2: #0f3460;
+      --green: #27ae60;
+      --text: #eaeaea;
+      --text2: #a0a0b0;
+      --border: #1e2d50;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; width: 100%; max-width: 480px; padding: 20px 16px; flex-direction: column; align-items: center; }
+    .screen.aktiv { display: flex; }
+
+    /* ── HEADER ── */
+    .firma {
+      font-size: 1.05rem; font-weight: 700; color: var(--accent);
+      letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 4px; text-align: center;
+    }
+    .uhrzeit-gross {
+      font-size: 3.8rem; font-weight: 800; letter-spacing: -2px;
+      line-height: 1; color: var(--text); margin: 6px 0 2px; text-align: center;
+    }
+    .datum-text { font-size: 0.95rem; color: var(--text2); margin-bottom: 20px; text-align: center; }
+
+    /* ── NAME AUSWAHL ── */
+    .wer-bist-du { font-size: 1.4rem; font-weight: 600; margin-bottom: 20px; color: var(--text2); text-align: center; }
+    .ma-grid { display: grid; grid-template-columns: 1fr; gap: 12px; width: 100%; }
+    .ma-grid.viele { grid-template-columns: 1fr 1fr; }
+    .ma-btn {
+      background: var(--card); border: 2px solid var(--accent2);
+      border-radius: 14px; color: var(--text); font-size: 1.15rem; font-weight: 700;
+      min-height: 72px; cursor: pointer; transition: all 0.15s;
+      padding: 14px 10px; text-align: center;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ma-btn:active { transform: scale(0.96); background: var(--accent2); }
+
+    .lade-text { color: var(--text2); font-size: 1rem; margin-top: 20px; text-align: center; }
+    .fehler-box {
+      background: #3d1515; border: 1px solid var(--accent);
+      border-radius: 10px; padding: 14px; color: #ff8888;
+      font-size: 0.9rem; width: 100%; margin-top: 10px; text-align: center;
+    }
+
+    /* ── PIN SCREEN ── */
+    .pin-name {
+      font-size: 2rem; font-weight: 800; color: var(--text);
+      text-align: center; margin-bottom: 6px;
+    }
+    .pin-hinweis { font-size: 0.95rem; color: var(--text2); margin-bottom: 24px; text-align: center; }
+    .pin-input-wrap { position: relative; width: 100%; margin-bottom: 14px; }
+    .pin-input {
+      width: 100%; background: var(--card); border: 2px solid var(--border);
+      color: var(--text); border-radius: 12px; padding: 16px 20px;
+      font-size: 2rem; font-weight: 700; text-align: center;
+      letter-spacing: 8px; outline: none; -webkit-text-security: disc;
+    }
+    .pin-input:focus { border-color: var(--accent); }
+    .pin-btn {
+      width: 100%; background: var(--accent); color: white;
+      border: none; border-radius: 12px; padding: 16px;
+      font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-bottom: 12px;
+    }
+    .pin-btn:active { opacity: 0.85; }
+    .pin-fehler {
+      background: #3d1515; border: 1px solid var(--accent);
+      border-radius: 8px; padding: 10px; color: #ff8888;
+      font-size: 0.9rem; text-align: center; width: 100%; margin-top: 4px;
+    }
+
+    /* ── ZURÜCK BUTTON ── */
+    .zurueck-btn {
+      align-self: flex-start; background: none; border: 1px solid var(--accent2);
+      color: var(--text2); padding: 8px 16px; border-radius: 8px;
+      font-size: 0.9rem; cursor: pointer; margin-bottom: 16px;
+    }
+    .zurueck-btn:active { background: var(--accent2); }
+
+    /* ── HAUPT SCREEN TABS ── */
+    .haupt-tabs {
+      display: flex; width: 100%; gap: 8px; margin-bottom: 20px;
+    }
+    .haupt-tab {
+      flex: 1; background: var(--card); border: 2px solid var(--border);
+      color: var(--text2); border-radius: 10px; padding: 12px 8px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer; text-align: center;
+    }
+    .haupt-tab.aktiv { background: var(--accent2); border-color: var(--accent); color: var(--text); }
+
+    .haupt-tab-inhalt { display: none; width: 100%; }
+    .haupt-tab-inhalt.aktiv { display: block; }
+
+    .ma-name { font-size: 1.8rem; font-weight: 800; color: var(--text); text-align: center; margin-bottom: 2px; }
+    .uhrzeit-mittel { font-size: 2.8rem; font-weight: 700; color: var(--accent); text-align: center; margin: 8px 0 14px; }
+
+    /* ── STEMPEL SECTION ── */
+    .status-info {
+      background: var(--card); border-radius: 12px; padding: 14px 20px;
+      margin: 0 0 16px; text-align: center; width: 100%;
+    }
+    .status-info .label { font-size: 0.85rem; color: var(--text2); }
+    .status-info .wert { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-top: 4px; }
+    .stempel-btn {
+      width: 100%; min-height: 120px; border: none; border-radius: 18px;
+      font-size: 1.5rem; font-weight: 800; cursor: pointer; letter-spacing: 1px;
+      transition: all 0.15s; display: flex; align-items: center;
+      justify-content: center; gap: 10px; margin-top: 8px;
+    }
+    .stempel-btn.beginn { background: var(--green); color: white; }
+    .stempel-btn.ende { background: var(--accent); color: white; }
+    .stempel-btn:active { transform: scale(0.97); opacity: 0.9; }
+    .stempel-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .fertig-box {
+      background: #1a3a2e; border: 2px solid var(--green);
+      border-radius: 14px; padding: 20px; text-align: center; width: 100%; margin-top: 8px;
+    }
+    .fertig-box .check { font-size: 2.5rem; color: var(--green); }
+    .fertig-box .fertig-text { font-size: 1.1rem; color: var(--text2); margin-top: 6px; }
+    .fertig-box .fertig-zeiten { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-top: 4px; }
+
+    /* ── KUNDENZEIT SECTION ── */
+    .kz-section-titel {
+      font-size: 1rem; font-weight: 700; color: var(--text2);
+      margin-bottom: 14px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.8rem; color: var(--text2); margin-bottom: 4px; }
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; color: var(--text);
+      font-size: 0.95rem; outline: none;
+    }
+    .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+    .form-group textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-speichern-kz {
+      width: 100%; background: var(--accent); color: white;
+      border: none; border-radius: 10px; padding: 14px;
+      font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+    }
+    .btn-speichern-kz:active { opacity: 0.85; }
+    .btn-speichern-kz:disabled { opacity: 0.5; cursor: not-allowed; }
+    .kz-ok {
+      background: #1a3a2e; border: 1px solid var(--green);
+      border-radius: 8px; padding: 10px; color: var(--green);
+      font-size: 0.9rem; text-align: center; margin-top: 8px; display: none;
+    }
+
+    /* ── MEINE EINTRÄGE ── */
+    .eintraege-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 20px 0 10px;
+    }
+    .eintraege-header h3 { font-size: 0.95rem; color: var(--text2); font-weight: 600; }
+    .eintraege-header .gesamt { font-size: 0.9rem; color: var(--green); font-weight: 700; }
+
+    .kz-eintrag {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; margin-bottom: 10px;
+    }
+    .kz-eintrag-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .kz-eintrag-kunde { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .kz-eintrag-stunden { font-size: 1.2rem; font-weight: 800; color: var(--green); }
+    .kz-eintrag-info { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
+    .kz-eintrag-taetigkeit { font-size: 0.85rem; color: var(--text); margin-top: 6px; font-style: italic; }
+    .kz-eintrag-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .kz-btn-edit {
+      background: none; border: 1px solid var(--border); color: var(--text2);
+      border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; cursor: pointer;
+    }
+    .kz-btn-edit:active { background: var(--accent2); }
+    .kz-btn-del {
+      background: none; border: 1px solid #5a2020; color: #e07070;
+      border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; cursor: pointer;
+    }
+    .kz-btn-del:active { background: #3d1515; }
+
+    /* ── MEINE STUNDEN TAB ── */
+    .ms-zusammen {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+    }
+    .ms-karte {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px; text-align: center;
+    }
+    .ms-karte .label { font-size: 0.75rem; color: var(--text2); margin-bottom: 4px; }
+    .ms-karte .wert { font-size: 1.3rem; font-weight: 800; color: var(--text); }
+    .ms-karte .wert.gruen { color: var(--green); }
+    .ms-karte .wert.rot { color: var(--accent); }
+    .ms-karte .wert.orange { color: #f39c12; }
+    .ms-tag {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .ms-tag-links { display: flex; flex-direction: column; gap: 2px; }
+    .ms-tag-datum { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .ms-tag-zeiten { font-size: 0.78rem; color: var(--text2); }
+    .ms-tag-rechts { text-align: right; }
+    .ms-tag-netto { font-size: 1rem; font-weight: 800; color: var(--text); }
+    .ms-tag-diff { font-size: 0.78rem; font-weight: 700; margin-top: 2px; }
+    .ms-tag-diff.pos { color: #f39c12; }
+    .ms-tag-diff.neg { color: var(--accent); }
+    .ms-tag-diff.null { color: var(--green); }
+    .ms-tag.kein-eintrag { opacity: 0.45; }
+    .ms-monat-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; background: var(--card);
+      border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px;
+    }
+    .ms-monat-nav button {
+      background: none; border: none; color: var(--text2);
+      font-size: 1.4rem; cursor: pointer; padding: 0 8px;
+    }
+    .ms-monat-label { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+
+    /* Inline-Edit-Formular */
+    .kz-edit-form {
+      background: var(--accent2); border-radius: 10px;
+      padding: 14px; margin-bottom: 10px;
+    }
+    .kz-edit-form .form-group input,
+    .kz-edit-form .form-group textarea {
+      background: var(--bg);
+    }
+    .kz-edit-form-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .kz-edit-form-actions button {
+      flex: 1; border: none; border-radius: 8px; padding: 10px;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    }
+    .kz-edit-save { background: var(--green); color: white; }
+    .kz-edit-cancel { background: var(--card); color: var(--text2); }
+
+    /* ── BESTÄTIGUNG SCREEN ── */
+    .bestaetigung-icon { font-size: 6rem; margin: 30px 0 16px; text-align: center; }
+    .bestaetigung-typ { font-size: 1.6rem; font-weight: 800; text-align: center; margin-bottom: 10px; }
+    .bestaetigung-uhrzeit { font-size: 3rem; font-weight: 800; color: var(--accent); text-align: center; margin-bottom: 10px; }
+    .bestaetigung-name { font-size: 1.1rem; color: var(--text2); text-align: center; margin-bottom: 30px; }
+    .countdown-text { font-size: 0.9rem; color: var(--text2); text-align: center; margin-top: 30px; }
+    .progress-bar-wrap { width: 200px; height: 4px; background: var(--card); border-radius: 2px; margin: 12px auto 0; overflow: hidden; }
+    .progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width linear; }
+
+    /* ── SPINNER ── */
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid var(--card);
+      border-top: 4px solid var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 20px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner-small {
+      width: 18px; height: 18px; border: 3px solid var(--card);
+      border-top: 3px solid var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     SCREEN 1: MITARBEITER WÄHLEN
+════════════════════════════════════════ -->
+<div class="screen aktiv" id="screen-wahl">
+  <div class="firma">&#9881; Sevinc Metallbau</div>
+  <div class="uhrzeit-gross" id="uhr1">--:--</div>
+  <div class="datum-text" id="datum1"></div>
+  <div class="wer-bist-du">Wer bist du?</div>
+  <div id="ma-liste-wrap" style="width:100%">
+    <div class="lade-text">&#8635; Lade Mitarbeiter&#8230;</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 2: PIN EINGABE
+════════════════════════════════════════ -->
+<div class="screen" id="screen-pin">
+  <div class="firma">&#9881; Sevinc Metallbau</div>
+  <div class="uhrzeit-gross" id="uhr-pin">--:--</div>
+  <div class="datum-text" id="datum-pin"></div>
+  <div class="pin-name" id="pin-name">–</div>
+  <div class="pin-hinweis">Bitte PIN eingeben</div>
+  <div class="pin-input-wrap">
+    <input type="password" inputmode="numeric" maxlength="6" class="pin-input"
+      id="pin-input" placeholder="••••" onkeydown="if(event.key==='Enter') pruefePIN()">
+  </div>
+  <button class="pin-btn" onclick="pruefePIN()">&#10003; Bestätigen</button>
+  <div class="pin-fehler" id="pin-fehler" style="display:none">Falscher PIN. Bitte erneut versuchen.</div>
+  <button class="zurueck-btn" style="align-self:center;margin-top:16px" onclick="zurueckZuWahl()">&#8592; Zurück</button>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 3: HAUPTSCREEN (STEMPELN + KUNDENZEITEN)
+════════════════════════════════════════ -->
+<div class="screen" id="screen-haupt">
+  <button class="zurueck-btn" onclick="abmelden()">&#8592; Abmelden</button>
+  <div class="ma-name" id="haupt-name">–</div>
+  <div class="uhrzeit-mittel" id="uhr3">--:--:--</div>
+
+  <!-- Tabs -->
+  <div class="haupt-tabs" style="width:100%">
+    <button class="haupt-tab aktiv" id="tab-btn-stempel" onclick="zeigeHauptTab('stempel',this)">⏱ Stempeln</button>
+    <button class="haupt-tab" id="tab-btn-kunden" onclick="zeigeHauptTab('kunden',this)">📋 Kundenzeit</button>
+    <button class="haupt-tab" id="tab-btn-stunden" onclick="zeigeHauptTab('stunden',this)">📊 Meine Stunden</button>
+  </div>
+
+  <!-- Tab: Stempeln -->
+  <div class="haupt-tab-inhalt aktiv" id="haupt-tab-stempel" style="width:100%">
+    <div id="stempel-inhalt" style="width:100%"></div>
+  </div>
+
+  <!-- Tab: Meine Stunden -->
+  <div class="haupt-tab-inhalt" id="haupt-tab-stunden" style="width:100%">
+    <div class="ms-monat-nav">
+      <button onclick="msMonatAendern(-1)">&#8592;</button>
+      <div class="ms-monat-label" id="ms-monat-label">–</div>
+      <button onclick="msMonatAendern(+1)">&#8594;</button>
+    </div>
+    <div id="ms-zusammen" class="ms-zusammen"></div>
+    <div id="ms-liste"></div>
+  </div>
+
+  <!-- Tab: Kundenzeiten -->
+  <div class="haupt-tab-inhalt" id="haupt-tab-kunden" style="width:100%">
+    <div class="kz-section-titel">Neue Kundenzeit erfassen</div>
+
+    <div class="form-group">
+      <label>Kundenname *</label>
+      <input type="text" id="kz-kunde" placeholder="z.B. Müller GmbH, Baustelle Koblenz…" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Datum *</label>
+        <input type="date" id="kz-datum">
+      </div>
+      <div class="form-group">
+        <label>Mitarbeiter</label>
+        <input type="text" id="kz-ma-anzeige" readonly style="opacity:0.7">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Von *</label>
+        <input type="time" id="kz-von">
+      </div>
+      <div class="form-group">
+        <label>Bis *</label>
+        <input type="time" id="kz-bis">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Tätigkeit</label>
+      <textarea id="kz-taetigkeit" placeholder="Was wurde gemacht? z.B. Geländer montiert, Schweißarbeiten…"></textarea>
+    </div>
+    <button class="btn-speichern-kz" id="kz-speichern-btn" onclick="speichereKundenzeit()">+ Eintrag speichern</button>
+    <div class="kz-ok" id="kz-ok">&#10003; Eintrag gespeichert!</div>
+
+    <div class="eintraege-header">
+      <h3>Meine Einträge (aktueller Monat)</h3>
+      <span class="gesamt" id="kz-gesamt">–</span>
+    </div>
+    <div id="kz-liste"><div class="lade-text">&#8635; Lade…</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 4: BESTÄTIGUNG
+════════════════════════════════════════ -->
+<div class="screen" id="screen-bestaetigung">
+  <div class="bestaetigung-icon" id="best-icon">&#10003;</div>
+  <div class="bestaetigung-typ" id="best-typ"></div>
+  <div class="bestaetigung-uhrzeit" id="best-uhrzeit"></div>
+  <div class="bestaetigung-name" id="best-name"></div>
+  <div class="countdown-text">Zurück in <span id="countdown">4</span> Sekunden&#8230;</div>
+  <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:100%"></div></div>
+</div>
+
+<script>
+const SUPABASE_URL      = 'https://febvatualuantefwlqyq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlYnZhdHVhbHVhbnRlZndscXlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDcyMzUsImV4cCI6MjA5MDEyMzIzNX0.kK8cfkl3FXRxeDi1vZUNaRFf4-eIsi0TrFAvXDvUujc';
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── STATE ──
+let aktiverMA    = null; // { name, pin }
+let alleMitarbeiter = [];
+let uhrInterval  = null;
+let uhrPinInterval = null;
+let uhr3Interval = null;
+
+// Mitarbeiter die ALLES bearbeiten dürfen (eigene + fremde)
+const SUPER_USER = ['Volkan Sevinc', 'Arnold Neumann'];
+
+// ── HILFSFUNKTIONEN ──
+function pad(n) { return String(n).padStart(2, '0'); }
+function jetzt() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function jetztSekunden() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+function heuteDatum() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function aktuellerMonat() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1); }
+
+function formatDatumDeutsch(d) {
+  const wt = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+  const mo = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  return wt[d.getDay()] + ', ' + d.getDate() + '. ' + mo[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function formatDatumKurz(s) {
+  // "2026-03-25" → "25.03.2026"
+  if (!s) return '–';
+  const [y,m,dd] = s.split('-');
+  return dd + '.' + m + '.' + y;
+}
+
+function nettoStunden(beginn, ende) {
+  if (!beginn || !ende) return null;
+  const [bh, bm] = beginn.split(':').map(Number);
+  const [eh, em] = ende.split(':').map(Number);
+  let min = (eh * 60 + em) - (bh * 60 + bm);
+  if (min < 0) min += 1440;
+  if (min >= 360) min -= 60;
+  return min / 60;
+}
+
+function berechneSeit(beginZeit) {
+  const [bh, bm] = beginZeit.split(':').map(Number);
+  const now = new Date();
+  let min = (now.getHours() * 60 + now.getMinutes()) - (bh * 60 + bm);
+  if (min < 0) min += 1440;
+  return Math.floor(min/60) + 'h ' + pad(min%60) + 'min';
+}
+
+function formatStunden(h) {
+  if (h === null) return '–';
+  const std = Math.floor(h);
+  const min = Math.round((h - std) * 60);
+  return std + 'h ' + pad(min) + 'min';
+}
+
+function berechneStunden(von, bis) {
+  if (!von || !bis) return null;
+  const [vh, vm] = von.split(':').map(Number);
+  const [bh, bm] = bis.split(':').map(Number);
+  let min = (bh * 60 + bm) - (vh * 60 + vm);
+  if (min <= 0) return null;
+  return +(min / 60).toFixed(2);
+}
+
+// ── UHRZEIT ──
+function startUhr(elId, modus) {
+  const el = document.getElementById(elId);
+  function tick() { el.textContent = modus === 'kurz' ? jetzt() : jetztSekunden(); }
+  tick();
+  return setInterval(tick, 1000);
+}
+
+// ── SCREEN WECHSEL ──
+function zeigeScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('aktiv'); });
+  document.getElementById(id).classList.add('aktiv');
+  window.scrollTo(0, 0);
+}
+
+// ── SCREEN 1: NAME WAHL ──
+async function initWahl() {
+  if (uhrInterval) clearInterval(uhrInterval);
+  uhrInterval = startUhr('uhr1', 'kurz');
+  document.getElementById('datum1').textContent = formatDatumDeutsch(new Date());
+
+  const wrap = document.getElementById('ma-liste-wrap');
+  wrap.innerHTML = '<div class="lade-text">&#8635; Lade Mitarbeiter&#8230;</div>';
+
+  try {
+    const { data, error } = await sb.from('mitarbeiter').select('*').order('name');
+    if (error) throw error;
+    alleMitarbeiter = data || [];
+
+    if (alleMitarbeiter.length === 0) {
+      wrap.innerHTML = '<div class="fehler-box">Keine Mitarbeiter gefunden.<br>Bitte im Admin-Bereich Mitarbeiter anlegen.</div>';
+      return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'ma-grid' + (alleMitarbeiter.length > 4 ? ' viele' : '');
+    alleMitarbeiter.forEach(function(ma) {
+      const btn = document.createElement('button');
+      btn.className = 'ma-btn';
+      btn.textContent = ma.name;
+      btn.addEventListener('click', function() { waehleName(ma); });
+      grid.appendChild(btn);
+    });
+    wrap.innerHTML = '';
+    wrap.appendChild(grid);
+  } catch (err) {
+    wrap.innerHTML = '<div class="fehler-box">Verbindung fehlgeschlagen.<br><small>' + err.message + '</small></div>';
+  }
+}
+
+// ── NAME GEWÄHLT → PIN SCREEN ──
+function waehleName(ma) {
+  aktiverMA = ma;
+  document.getElementById('pin-name').textContent = ma.name;
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-fehler').style.display = 'none';
+  if (uhrPinInterval) clearInterval(uhrPinInterval);
+  uhrPinInterval = startUhr('uhr-pin', 'kurz');
+  document.getElementById('datum-pin').textContent = formatDatumDeutsch(new Date());
+  zeigeScreen('screen-pin');
+  setTimeout(function() { document.getElementById('pin-input').focus(); }, 300);
+}
+
+// ── PIN PRÜFEN ──
+async function pruefePIN() {
+  const eingabe = document.getElementById('pin-input').value.trim();
+  const fehlerEl = document.getElementById('pin-fehler');
+  fehlerEl.style.display = 'none';
+
+  if (!eingabe) {
+    fehlerEl.textContent = 'Bitte PIN eingeben.';
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  // PIN aus Datenbank prüfen (aktiverMA hat pin-Feld)
+  if (!aktiverMA.pin) {
+    fehlerEl.textContent = 'Kein PIN vergeben. Bitte Admin kontaktieren.';
+    fehlerEl.style.display = 'block';
+    return;
+  }
+
+  if (eingabe !== String(aktiverMA.pin)) {
+    fehlerEl.textContent = 'Falscher PIN. Bitte erneut versuchen.';
+    fehlerEl.style.display = 'block';
+    document.getElementById('pin-input').value = '';
+    document.getElementById('pin-input').focus();
+    return;
+  }
+
+  // PIN korrekt → Hauptscreen öffnen
+  if (uhrPinInterval) { clearInterval(uhrPinInterval); uhrPinInterval = null; }
+  oeffneHauptScreen();
+}
+
+// ── SCREEN 3: HAUPT ──
+async function oeffneHauptScreen() {
+  document.getElementById('haupt-name').textContent = aktiverMA.name;
+  document.getElementById('kz-ma-anzeige').value = aktiverMA.name;
+
+  // Datum auf heute setzen
+  document.getElementById('kz-datum').value = heuteDatum();
+
+  if (uhr3Interval) clearInterval(uhr3Interval);
+  uhr3Interval = startUhr('uhr3', 'lang');
+
+  // Stempel-Tab anzeigen
+  zeigeHauptTab('stempel', document.getElementById('tab-btn-stempel'));
+
+  zeigeScreen('screen-haupt');
+  ladeStempelStatus();
+}
+
+function zeigeHauptTab(tab, btn) {
+  document.querySelectorAll('.haupt-tab').forEach(function(b) { b.classList.remove('aktiv'); });
+  document.querySelectorAll('.haupt-tab-inhalt').forEach(function(t) { t.classList.remove('aktiv'); });
+  btn.classList.add('aktiv');
+  document.getElementById('haupt-tab-' + tab).classList.add('aktiv');
+  if (tab === 'kunden') ladeEigeneEintraege();
+  if (tab === 'stunden') ladeMeineStunden();
+}
+
+// ── MEINE STUNDEN ──
+let msJahr  = new Date().getFullYear();
+let msMonat = new Date().getMonth() + 1;
+
+const MS_MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+function msMonatAendern(delta) {
+  msMonat += delta;
+  if (msMonat > 12) { msMonat = 1; msJahr++; }
+  if (msMonat < 1)  { msMonat = 12; msJahr--; }
+  ladeMeineStunden();
+}
+
+function msSollStunden(monat, jahr) {
+  let werktage = 0;
+  const tage = new Date(jahr, monat, 0).getDate();
+  for (let t = 1; t <= tage; t++) {
+    const dow = new Date(jahr, monat - 1, t).getDay();
+    if (dow >= 1 && dow <= 5) werktage++;
+  }
+  return werktage * 8;
+}
+
+async function ladeMeineStunden() {
+  document.getElementById('ms-monat-label').textContent = MS_MONATE[msMonat - 1] + ' ' + msJahr;
+  document.getElementById('ms-zusammen').innerHTML = '<div class="lade-text" style="grid-column:1/-1">&#8635; Lade…</div>';
+  document.getElementById('ms-liste').innerHTML = '';
+
+  const von = msJahr + '-' + pad(msMonat) + '-01';
+  const bis = msJahr + '-' + pad(msMonat) + '-' + pad(new Date(msJahr, msMonat, 0).getDate());
+  const heute = heuteDatum();
+
+  try {
+    const { data, error } = await sb.from('stamps')
+      .select('typ, datum, zeit')
+      .eq('mitarbeiter', aktiverMA.name)
+      .gte('datum', von)
+      .lte('datum', bis)
+      .order('datum').order('zeit');
+    if (error) throw error;
+
+    // Tages-Map aufbauen
+    const tagesMap = {};
+    (data || []).forEach(function(s) {
+      if (!tagesMap[s.datum]) tagesMap[s.datum] = {};
+      if (s.typ === 'beginn' && !tagesMap[s.datum].beginn) tagesMap[s.datum].beginn = s.zeit.slice(0,5);
+      if (s.typ === 'ende') tagesMap[s.datum].ende = s.zeit.slice(0,5);
+    });
+
+    // Zeilen aufbauen (nur Mo-Fr bis heute)
+    const anzTage = new Date(msJahr, msMonat, 0).getDate();
+    const zeilen = [];
+    for (let t = 1; t <= anzTage; t++) {
+      const d = msJahr + '-' + pad(msMonat) + '-' + pad(t);
+      if (d > heute) break;
+      const dow = new Date(msJahr, msMonat - 1, t).getDay();
+      if (dow === 0) continue; // Sonntag überspringen
+      const beginn = tagesMap[d] ? tagesMap[d].beginn : null;
+      const ende   = tagesMap[d] ? tagesMap[d].ende   : null;
+      const netto  = nettoStunden(beginn, ende);
+      const sollH  = dow >= 1 && dow <= 5 ? 8 : 0;
+      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : (dow >= 1 && dow <= 5 ? -8 : null);
+      zeilen.push({ d, dow, beginn, ende, netto, diff });
+    }
+
+    // Zusammenfassung
+    const soll      = msSollStunden(msMonat, msJahr);
+    const gesamtNet = zeilen.reduce(function(s,z){ return s + (z.netto || 0); }, 0);
+    const totalDiff = +zeilen.reduce(function(s,z){ return s + (z.diff || 0); }, 0).toFixed(2);
+
+    const diffKl = totalDiff > 0 ? 'orange' : (totalDiff < 0 ? 'rot' : 'gruen');
+    document.getElementById('ms-zusammen').innerHTML =
+      '<div class="ms-karte"><div class="label">Gearbeitet</div><div class="wert">' + formatStunden(gesamtNet) + '</div></div>'
+      + '<div class="ms-karte"><div class="label">Soll</div><div class="wert">' + formatStunden(soll) + '</div></div>'
+      + '<div class="ms-karte" style="grid-column:1/-1"><div class="label">' + (totalDiff >= 0 ? 'Überstunden' : 'Minusstunden') + '</div>'
+      + '<div class="wert ' + diffKl + '">' + (totalDiff > 0 ? '+' : '') + formatStunden(totalDiff) + '</div></div>';
+
+    // Tagesliste (neueste zuerst)
+    const liste = document.getElementById('ms-liste');
+    liste.innerHTML = '';
+    if (zeilen.length === 0) {
+      liste.innerHTML = '<div class="lade-text">Keine Einträge in diesem Monat.</div>';
+      return;
+    }
+    const wt = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+    zeilen.slice().reverse().forEach(function(z) {
+      const hatEintrag = z.beginn;
+      const diffTxt = z.diff !== null ? (z.diff > 0 ? '+' + formatStunden(z.diff) : formatStunden(z.diff)) : '–';
+      const diffKl2 = z.diff > 0 ? 'pos' : (z.diff < 0 ? 'neg' : 'null');
+      const div = document.createElement('div');
+      div.className = 'ms-tag' + (hatEintrag ? '' : ' kein-eintrag');
+      div.innerHTML =
+        '<div class="ms-tag-links">'
+        + '<div class="ms-tag-datum">' + wt[z.dow] + ', ' + formatDatumKurz(z.d) + '</div>'
+        + '<div class="ms-tag-zeiten">' + (z.beginn || '–') + ' → ' + (z.ende || '–') + '</div>'
+        + '</div>'
+        + '<div class="ms-tag-rechts">'
+        + '<div class="ms-tag-netto">' + (z.netto !== null ? formatStunden(z.netto) : '–') + '</div>'
+        + (z.diff !== null ? '<div class="ms-tag-diff ' + diffKl2 + '">' + diffTxt + '</div>' : '')
+        + '</div>';
+      liste.appendChild(div);
+    });
+  } catch (err) {
+    document.getElementById('ms-zusammen').innerHTML = '<div class="lade-text" style="grid-column:1/-1;color:var(--accent)">Fehler: ' + err.message + '</div>';
+  }
+}
+
+// ── STEMPEL FUNKTIONEN ──
+async function ladeStempelStatus() {
+  const inhalt = document.getElementById('stempel-inhalt');
+  inhalt.innerHTML = '<div class="spinner"></div>';
+  try {
+    const { data, error } = await sb
+      .from('stamps').select('typ,zeit')
+      .eq('mitarbeiter', aktiverMA.name)
+      .eq('datum', heuteDatum())
+      .order('zeit');
+    if (error) throw error;
+    let beginn = null, ende = null;
+    for (const s of (data || [])) {
+      if (s.typ === 'beginn') beginn = s.zeit.substring(0,5);
+      if (s.typ === 'ende')   ende   = s.zeit.substring(0,5);
+    }
+    renderStempel(beginn, ende, inhalt);
+  } catch (err) {
+    inhalt.innerHTML = '<div class="fehler-box">Fehler: ' + err.message + '</div>';
+  }
+}
+
+function renderStempel(beginn, ende, container) {
+  if (beginn && ende) {
+    const netto = nettoStunden(beginn, ende);
+    container.innerHTML =
+      '<div class="fertig-box">'
+      + '<div class="check">&#10003;</div>'
+      + '<div class="fertig-text">Heute vollständig gestempelt</div>'
+      + '<div class="fertig-zeiten">' + beginn + ' – ' + ende + ' Uhr</div>'
+      + '<div class="fertig-text" style="margin-top:8px">' + formatStunden(netto) + ' Netto-Arbeitszeit</div>'
+      + '</div>';
+    return;
+  }
+  if (beginn && !ende) {
+    const seit = berechneSeit(beginn);
+    container.innerHTML =
+      '<div class="status-info">'
+      + '<div class="label">Arbeitsbeginn gestempelt</div>'
+      + '<div class="wert">&#9654; ' + beginn + ' Uhr</div>'
+      + '<div class="label" style="margin-top:6px">Gearbeitet bisher: ' + seit + '</div>'
+      + '</div>'
+      + '<button class="stempel-btn ende" id="btn-stempel">&#9632; ARBEITSENDE</button>';
+    document.getElementById('btn-stempel').addEventListener('click', function() { handleStempel('ende'); });
+    return;
+  }
+  container.innerHTML =
+    '<div class="status-info">'
+    + '<div class="label">Heute noch nicht gestempelt</div>'
+    + '<div class="wert" style="color:var(--text2)">– kein Eintrag –</div>'
+    + '</div>'
+    + '<button class="stempel-btn beginn" id="btn-stempel">&#9654; ARBEITSBEGINN</button>';
+  document.getElementById('btn-stempel').addEventListener('click', function() { handleStempel('beginn'); });
+}
+
+async function handleStempel(typ) {
+  const btn = document.getElementById('btn-stempel');
+  if (btn) { btn.disabled = true; btn.textContent = 'Speichere…'; }
+  try {
+    const zeitJetzt = jetzt();
+    const { error } = await sb.from('stamps').insert({
+      id: Date.now(), mitarbeiter: aktiverMA.name, typ: typ,
+      datum: heuteDatum(), zeit: zeitJetzt
+    });
+    if (error) throw error;
+    zeigeBestaetigung(typ, zeitJetzt);
+  } catch (err) {
+    const inhalt = document.getElementById('stempel-inhalt');
+    inhalt.innerHTML = '<div class="fehler-box">Fehler: ' + err.message
+      + '<br><br><button onclick="ladeStempelStatus()" style="margin-top:8px;padding:8px 20px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;">Nochmal versuchen</button></div>';
+  }
+}
+
+// ── BESTÄTIGUNG ──
+function zeigeBestaetigung(typ, zeitStr) {
+  const istBeginn = (typ === 'beginn');
+  const iconEl = document.getElementById('best-icon');
+  iconEl.innerHTML = istBeginn ? '&#9654;' : '&#9632;';
+  iconEl.style.color = istBeginn ? '#27ae60' : '#e94560';
+  const typEl = document.getElementById('best-typ');
+  typEl.textContent = istBeginn ? 'ARBEITSBEGINN gestempelt!' : 'ARBEITSENDE gestempelt!';
+  typEl.style.color  = istBeginn ? '#27ae60' : '#e94560';
+  document.getElementById('best-uhrzeit').textContent = zeitStr + ' Uhr';
+  document.getElementById('best-name').textContent = aktiverMA.name;
+  zeigeScreen('screen-bestaetigung');
+
+  let sek = 4;
+  document.getElementById('countdown').textContent = sek;
+  const bar = document.getElementById('progress-bar');
+  bar.style.transition = 'none'; bar.style.width = '100%';
+  setTimeout(function() {
+    bar.style.transition = 'width ' + sek + 's linear';
+    bar.style.width = '0%';
+  }, 50);
+  const interval = setInterval(function() {
+    sek--;
+    document.getElementById('countdown').textContent = sek;
+    if (sek <= 0) { clearInterval(interval); abmelden(); }
+  }, 1000);
+}
+
+// ── KUNDENZEITEN ──
+async function speichereKundenzeit() {
+  const btn     = document.getElementById('kz-speichern-btn');
+  const okEl    = document.getElementById('kz-ok');
+  const kunde   = document.getElementById('kz-kunde').value.trim();
+  const datum   = document.getElementById('kz-datum').value;
+  const von     = document.getElementById('kz-von').value;
+  const bis     = document.getElementById('kz-bis').value;
+  const taetigkeit = document.getElementById('kz-taetigkeit').value.trim();
+
+  okEl.style.display = 'none';
+
+  if (!kunde || !datum || !von || !bis) {
+    okEl.style.background = '#3d1515';
+    okEl.style.borderColor = 'var(--accent)';
+    okEl.style.color = '#ff8888';
+    okEl.textContent = 'Bitte Kundenname, Datum, Von und Bis ausfüllen.';
+    okEl.style.display = 'block';
+    return;
+  }
+
+  const stunden = berechneStunden(von, bis);
+  if (!stunden) {
+    okEl.style.background = '#3d1515';
+    okEl.style.borderColor = 'var(--accent)';
+    okEl.style.color = '#ff8888';
+    okEl.textContent = '"Bis" muss nach "Von" liegen.';
+    okEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Speichere…';
+
+  try {
+    const { error } = await sb.from('kundenzeiten').insert({
+      mitarbeiter: aktiverMA.name,
+      kunde, datum, von, bis,
+      stunden,
+      taetigkeit,
+      erstellt_von: aktiverMA.name
+    });
+    if (error) throw error;
+
+    // Felder leeren
+    document.getElementById('kz-kunde').value = '';
+    document.getElementById('kz-von').value = '';
+    document.getElementById('kz-bis').value = '';
+    document.getElementById('kz-taetigkeit').value = '';
+    document.getElementById('kz-datum').value = heuteDatum();
+
+    okEl.style.background = '#1a3a2e';
+    okEl.style.borderColor = 'var(--green)';
+    okEl.style.color = 'var(--green)';
+    okEl.textContent = '✓ Eintrag gespeichert!';
+    okEl.style.display = 'block';
+    setTimeout(function() { okEl.style.display = 'none'; }, 3000);
+
+    ladeEigeneEintraege();
+  } catch (err) {
+    okEl.style.background = '#3d1515';
+    okEl.style.borderColor = 'var(--accent)';
+    okEl.style.color = '#ff8888';
+    okEl.textContent = 'Fehler: ' + err.message;
+    okEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '+ Eintrag speichern';
+  }
+}
+
+async function ladeEigeneEintraege() {
+  const liste = document.getElementById('kz-liste');
+  const gesamt = document.getElementById('kz-gesamt');
+  liste.innerHTML = '<div class="lade-text"><span class="spinner-small"></span> Lade…</div>';
+
+  const monat = aktuellerMonat(); // "2026-03"
+  const vonDatum = monat + '-01';
+  const bisDatum = monat + '-31';
+
+  try {
+    const { data, error } = await sb.from('kundenzeiten')
+      .select('*')
+      .eq('mitarbeiter', aktiverMA.name)
+      .gte('datum', vonDatum)
+      .lte('datum', bisDatum)
+      .order('datum', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      liste.innerHTML = '<div class="lade-text" style="margin-top:0">Noch keine Einträge diesen Monat.</div>';
+      gesamt.textContent = '0 Std.';
+      return;
+    }
+
+    let gesamtStd = 0;
+    data.forEach(function(e) { gesamtStd += (e.stunden || 0); });
+    gesamt.textContent = gesamtStd.toFixed(1) + ' Std.';
+
+    liste.innerHTML = '';
+    data.forEach(function(e) { liste.appendChild(erstelleEintragKarte(e)); });
+  } catch (err) {
+    liste.innerHTML = '<div class="fehler-box">Fehler: ' + err.message + '</div>';
+  }
+}
+
+function erstelleEintragKarte(e) {
+  const darf = SUPER_USER.includes(aktiverMA.name) || e.mitarbeiter === aktiverMA.name;
+  const div = document.createElement('div');
+  div.className = 'kz-eintrag';
+  div.id = 'kz-karte-' + e.id;
+
+  const erstelltAm = e.created_at
+    ? new Date(e.created_at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
+    : '–';
+  const von = e.von ? e.von.substring(0,5) : '–';
+  const bis = e.bis ? e.bis.substring(0,5) : '–';
+
+  div.innerHTML =
+    '<div class="kz-eintrag-top">'
+    + '<div><div class="kz-eintrag-kunde">' + escHtml(e.kunde) + '</div>'
+    + '<div class="kz-eintrag-info">' + formatDatumKurz(e.datum) + ' · ' + von + '–' + bis + ' Uhr</div>'
+    + (e.taetigkeit ? '<div class="kz-eintrag-taetigkeit">' + escHtml(e.taetigkeit) + '</div>' : '')
+    + '<div class="kz-eintrag-info" style="margin-top:6px;font-size:0.75rem">Eingetragen: ' + erstelltAm + ' von ' + escHtml(e.erstellt_von) + '</div>'
+    + '</div>'
+    + '<div style="text-align:right"><div class="kz-eintrag-stunden">' + (e.stunden || 0).toFixed(1) + ' Std</div></div>'
+    + '</div>'
+    + (darf
+      ? '<div class="kz-eintrag-actions">'
+        + '<button class="kz-btn-edit" onclick="zeigeEditForm(' + e.id + ')">✏ Bearbeiten</button>'
+        + '<button class="kz-btn-del" onclick="loescheEintrag(' + e.id + ')">✕ Löschen</button>'
+        + '</div>'
+      : '');
+  return div;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function zeigeEditForm(id) {
+  // Finde den Eintrag - hole ihn aus dem DOM (wir laden die Liste neu)
+  ladeEintragFuerEdit(id);
+}
+
+async function ladeEintragFuerEdit(id) {
+  try {
+    const { data, error } = await sb.from('kundenzeiten').select('*').eq('id', id).single();
+    if (error) throw error;
+    zeigeEditFormMitDaten(data);
+  } catch (err) {
+    alert('Fehler: ' + err.message);
+  }
+}
+
+function zeigeEditFormMitDaten(e) {
+  const karte = document.getElementById('kz-karte-' + e.id);
+  if (!karte) return;
+
+  const von = e.von ? e.von.substring(0,5) : '';
+  const bis = e.bis ? e.bis.substring(0,5) : '';
+
+  const editDiv = document.createElement('div');
+  editDiv.className = 'kz-edit-form';
+  editDiv.id = 'kz-edit-' + e.id;
+  editDiv.innerHTML =
+    '<div style="font-size:0.85rem;color:var(--text2);margin-bottom:10px;font-weight:600">Eintrag bearbeiten</div>'
+    + '<div class="form-group"><label>Kundenname</label>'
+    + '<input type="text" id="edit-kunde-' + e.id + '" value="' + escHtml(e.kunde) + '"></div>'
+    + '<div class="form-row">'
+    + '<div class="form-group"><label>Datum</label><input type="date" id="edit-datum-' + e.id + '" value="' + (e.datum||'') + '"></div>'
+    + '<div class="form-group"><label>Von</label><input type="time" id="edit-von-' + e.id + '" value="' + von + '"></div>'
+    + '</div>'
+    + '<div class="form-group"><label>Bis</label><input type="time" id="edit-bis-' + e.id + '" value="' + bis + '"></div>'
+    + '<div class="form-group"><label>Tätigkeit</label>'
+    + '<textarea id="edit-taetigkeit-' + e.id + '">' + escHtml(e.taetigkeit || '') + '</textarea></div>'
+    + '<div class="kz-edit-form-actions">'
+    + '<button class="kz-edit-cancel" onclick="abbrechenEdit(' + e.id + ')">Abbrechen</button>'
+    + '<button class="kz-edit-save" onclick="speichereEdit(' + e.id + ')">Speichern</button>'
+    + '</div>';
+
+  karte.parentNode.insertBefore(editDiv, karte);
+  karte.style.display = 'none';
+}
+
+function abbrechenEdit(id) {
+  const editForm = document.getElementById('kz-edit-' + id);
+  const karte    = document.getElementById('kz-karte-' + id);
+  if (editForm) editForm.remove();
+  if (karte) karte.style.display = '';
+}
+
+async function speichereEdit(id) {
+  const kundeNeu    = document.getElementById('edit-kunde-' + id).value.trim();
+  const datumNeu    = document.getElementById('edit-datum-' + id).value;
+  const vonNeu      = document.getElementById('edit-von-' + id).value;
+  const bisNeu      = document.getElementById('edit-bis-' + id).value;
+  const taetNeu     = document.getElementById('edit-taetigkeit-' + id).value.trim();
+
+  if (!kundeNeu || !datumNeu || !vonNeu || !bisNeu) {
+    alert('Bitte alle Pflichtfelder ausfüllen.');
+    return;
+  }
+
+  const stundenNeu = berechneStunden(vonNeu, bisNeu);
+  if (!stundenNeu) { alert('"Bis" muss nach "Von" liegen.'); return; }
+
+  try {
+    // Alten Eintrag holen für Verlaufsprotokoll
+    const { data: alt, error: altErr } = await sb.from('kundenzeiten').select('*').eq('id', id).single();
+    if (altErr) throw altErr;
+
+    // Änderungen ermitteln
+    const aenderungen = [];
+    if (alt.kunde !== kundeNeu) aenderungen.push({ feld: 'kunde', alt: alt.kunde, neu: kundeNeu });
+    if (alt.datum !== datumNeu) aenderungen.push({ feld: 'datum', alt: alt.datum, neu: datumNeu });
+    if ((alt.von||'').substring(0,5) !== vonNeu) aenderungen.push({ feld: 'von', alt: (alt.von||'').substring(0,5), neu: vonNeu });
+    if ((alt.bis||'').substring(0,5) !== bisNeu) aenderungen.push({ feld: 'bis', alt: (alt.bis||'').substring(0,5), neu: bisNeu });
+    if ((alt.taetigkeit||'') !== taetNeu) aenderungen.push({ feld: 'taetigkeit', alt: alt.taetigkeit||'', neu: taetNeu });
+
+    // Update
+    const { error: updErr } = await sb.from('kundenzeiten').update({
+      kunde: kundeNeu, datum: datumNeu, von: vonNeu, bis: bisNeu,
+      stunden: stundenNeu, taetigkeit: taetNeu, updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (updErr) throw updErr;
+
+    // Verlauf speichern (nur wenn etwas geändert)
+    if (aenderungen.length > 0) {
+      await sb.from('kundenzeiten_verlauf').insert({
+        eintrag_id: id,
+        geaendert_von: aktiverMA.name,
+        aenderungen: { felder: aenderungen }
+      });
+    }
+
+    abbrechenEdit(id);
+    ladeEigeneEintraege();
+  } catch (err) {
+    alert('Fehler beim Speichern: ' + err.message);
+  }
+}
+
+async function loescheEintrag(id) {
+  if (!confirm('Eintrag wirklich löschen?')) return;
+  try {
+    const { error } = await sb.from('kundenzeiten').delete().eq('id', id);
+    if (error) throw error;
+    ladeEigeneEintraege();
+  } catch (err) {
+    alert('Fehler: ' + err.message);
+  }
+}
+
+// ── ABMELDEN ──
+function abmelden() {
+  aktiverMA = null;
+  if (uhr3Interval) { clearInterval(uhr3Interval); uhr3Interval = null; }
+  zeigeScreen('screen-wahl');
+  initWahl();
+}
+
+function zurueckZuWahl() {
+  if (uhrPinInterval) { clearInterval(uhrPinInterval); uhrPinInterval = null; }
+  aktiverMA = null;
+  zeigeScreen('screen-wahl');
+  initWahl();
+}
+
+// ── START ──
+initWahl();
+</script>
+</body>
+</html>
