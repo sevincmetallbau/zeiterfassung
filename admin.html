@@ -1885,10 +1885,8 @@ async function ladeDetail() {
         ? '<span class="' + (ueber ? 'td-orange' : '') + '">' + formatH(r.netto) + '</span>'
         : '–';
 
-      const aktionen = r.beginn
-        ? '<button class="btn-aktion" onclick="oeffneBearbeiten(\'' + r.ma.replace(/'/g,"\\'")+'\',\''+r.datum+'\')">&#9998;</button>'
-          + '<button class="btn-aktion del" onclick="loescheEintrag(\'' + r.ma.replace(/'/g,"\\'") + '\',\'' + r.datum + '\')">&#128465;</button>'
-        : '';
+      const aktionen = '<button class="btn-aktion" onclick="oeffneBearbeiten(\'' + r.ma.replace(/'/g,"\\'")+'\',\''+r.datum+'\')">&#9998;</button>'
+          + (r.beginn ? '<button class="btn-aktion del" onclick="loescheEintrag(\'' + r.ma.replace(/'/g,"\\'") + '\',\'' + r.datum + '\')">&#128465;</button>' : '');
 
       const tr = document.createElement('tr');
       tr.className = trKlasse;
