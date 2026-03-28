@@ -1041,6 +1041,7 @@
         <strong>Stempel-Link für Mitarbeiter</strong>
         <div class="qr-url" id="qr-url-text"></div>
         <button class="qr-kopier-btn" onclick="kopiereUrl()">Link kopieren</button>
+        <button class="qr-kopier-btn" onclick="druckeQR()" style="margin-left:8px;">&#128438; QR drucken</button>
       </div>
     </div>
   </div>
@@ -1584,6 +1585,25 @@ function generiereQR() {
     colorDark: '#e94560',
     colorLight: '#16213e'
   });
+}
+
+function druckeQR() {
+  const url = document.getElementById('qr-url-text').textContent;
+  const qrImg = document.querySelector('#qr-code-el img') || document.querySelector('#qr-code-el canvas');
+  let imgSrc = '';
+  if (qrImg && qrImg.tagName === 'IMG') imgSrc = qrImg.src;
+  else if (qrImg && qrImg.tagName === 'CANVAS') imgSrc = qrImg.toDataURL();
+
+  const w = window.open('', '_blank');
+  w.document.write('<html><head><title>QR-Code Zeiterfassung</title><style>body{font-family:sans-serif;text-align:center;padding:40px;background:#fff;color:#000}h2{margin-bottom:8px}p{font-size:12px;color:#555;margin:8px 0}img{margin:16px auto;display:block}</style></head><body>');
+  w.document.write('<h2>Sevinc Metallbau – Zeiterfassung</h2>');
+  w.document.write('<p>Scanne den QR-Code zum Ein-/Ausstempeln</p>');
+  w.document.write('<img src="' + imgSrc + '" width="250" height="250">');
+  w.document.write('<p style="font-size:10px;color:#999;">' + url + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  w.focus();
+  setTimeout(function() { w.print(); }, 300);
 }
 
 function toggleQR(btn) {
