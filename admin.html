@@ -1465,13 +1465,15 @@ function isSpaet(beginn) {
 
 // ── AUTH ──
 
+let initDone = false;
 sb.auth.onAuthStateChange(function(event, session) {
   if (session) {
     document.getElementById('login-overlay').classList.add('versteckt');
     document.getElementById('header').style.display = 'flex';
     document.getElementById('dashboard').classList.add('aktiv');
-    init();
+    if (!initDone) { initDone = true; init(); }
   } else {
+    initDone = false;
     document.getElementById('login-overlay').classList.remove('versteckt');
     document.getElementById('header').style.display = 'none';
     document.getElementById('dashboard').classList.remove('aktiv');
@@ -1694,7 +1696,7 @@ function baueTagesMap(stamps) {
 
 async function ladeMonatsübersicht() {
   const tbody = document.getElementById('monat-tbody');
-  tbody.innerHTML = '<tr><td colspan="9" class="lade-hinweis"><span class="spinner-inline"></span> Lade…</td></tr>';
+  if (!tbody.hasChildNodes()) tbody.innerHTML = '<tr><td colspan="9" class="lade-hinweis"><span class="spinner-inline"></span> Lade…</td></tr>';
 
   try {
     const stamps = await ladeMonatsStamps();
@@ -1814,7 +1816,7 @@ async function ladeMonatsübersicht() {
 
 async function ladeDetail() {
   const tbody = document.getElementById('detail-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" class="lade-hinweis"><span class="spinner-inline"></span> Lade…</td></tr>';
+  if (!tbody.hasChildNodes()) tbody.innerHTML = '<tr><td colspan="8" class="lade-hinweis"><span class="spinner-inline"></span> Lade…</td></tr>';
 
   try {
     const stamps = await ladeMonatsStamps();
