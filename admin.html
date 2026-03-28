@@ -1843,8 +1843,6 @@ async function ladeDetail() {
         const fruehAkzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
         const effektivBeginn = (beginn && beginn < '07:00' && !fruehAkzeptiert) ? '07:00' : beginn;
 
-        // Zukünftige Tage ohne Eintrag überspringen
-        if (!eintrag && d > heuteDatum()) return;
 
         const netto = nettoStunden(effektivBeginn, ende);
         const unvoll = beginn && !ende;
