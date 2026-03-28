@@ -1870,8 +1870,6 @@ async function ladeDetail() {
         // Filter: nur unvollständige
         if (filterStatus === 'unvoll' && !unvoll) return;
 
-        // Fehlende Werktage einschließen
-        if (!eintrag && (dow === 6)) return;
 
         rows.push({
           datum: d,
