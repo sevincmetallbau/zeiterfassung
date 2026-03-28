@@ -1041,7 +1041,8 @@
         <strong>Stempel-Link für Mitarbeiter</strong>
         <div class="qr-url" id="qr-url-text"></div>
         <button class="qr-kopier-btn" onclick="kopiereUrl()">Link kopieren</button>
-        <button class="qr-kopier-btn" onclick="druckeQR()" style="margin-left:8px;">&#128438; QR drucken</button>
+        <button class="qr-kopier-btn" onclick="druckeQR('Zeiterfassung')" style="margin-left:8px;">&#128438; Zeiterfassung</button>
+        <button class="qr-kopier-btn" onclick="druckeQR('Kundenzeiten')" style="margin-left:8px;">&#128438; Kundenzeiten</button>
       </div>
     </div>
   </div>
@@ -1587,19 +1588,16 @@ function generiereQR() {
   });
 }
 
-function druckeQR() {
-  const url = document.getElementById('qr-url-text').textContent;
+function druckeQR(titel) {
   const qrImg = document.querySelector('#qr-code-el img') || document.querySelector('#qr-code-el canvas');
   let imgSrc = '';
   if (qrImg && qrImg.tagName === 'IMG') imgSrc = qrImg.src;
   else if (qrImg && qrImg.tagName === 'CANVAS') imgSrc = qrImg.toDataURL();
 
   const w = window.open('', '_blank');
-  w.document.write('<html><head><title>QR-Code Zeiterfassung</title><style>body{font-family:sans-serif;text-align:center;padding:40px;background:#fff;color:#000}h2{margin-bottom:8px}p{font-size:12px;color:#555;margin:8px 0}img{margin:16px auto;display:block}</style></head><body>');
-  w.document.write('<h2>Sevinc Metallbau – Zeiterfassung</h2>');
-  w.document.write('<p>Scanne den QR-Code zum Ein-/Ausstempeln</p>');
-  w.document.write('<img src="' + imgSrc + '" width="250" height="250">');
-  w.document.write('<p style="font-size:10px;color:#999;">' + url + '</p>');
+  w.document.write('<html><head><title>' + titel + '</title><style>body{font-family:sans-serif;text-align:center;padding:60px 40px;background:#fff;color:#000;margin:0}h1{font-size:2rem;margin:0 0 32px 0}img{display:block;margin:0 auto}</style></head><body>');
+  w.document.write('<h1>' + titel + '</h1>');
+  w.document.write('<img src="' + imgSrc + '" width="300" height="300">');
   w.document.write('</body></html>');
   w.document.close();
   w.focus();
