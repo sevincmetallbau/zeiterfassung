@@ -1724,7 +1724,7 @@ async function ladeMonatsübersicht() {
     // Karten berechnen
     let gesamtStunden = 0, gesamtUeber = 0, gesamtFehl = 0, gesamtSpaet = 0;
 
-    const rows = state.alleMitarbeiter.filter(function(ma) { return ma.name !== 'Volkan Sevinc'; }).map(function(ma) {
+    const rows = state.alleMitarbeiter.map(function(ma) {
       let tageWoche = 0, tageSa = 0;
       let stdWoche = 0, stdSa = 0;
       let zuSpaet = 0;
