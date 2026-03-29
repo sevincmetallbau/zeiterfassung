@@ -1762,7 +1762,7 @@ async function ladeMonatsübersicht() {
       }
 
       const gesamt = stdWoche + stdSa;
-      const ueber  = stdWoche - (tageWoche * 8);
+      const ueber  = (stdWoche - (tageWoche * 8)) + stdSa;
 
       gesamtStunden += gesamt;
       if (ueber > 0) gesamtUeber += ueber;
