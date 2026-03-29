@@ -1891,7 +1891,7 @@ async function ladeDetail() {
     rows.forEach(function(r) {
       const isSa = r.dow === 6;
       const spaet = isSpaet(r.beginn);
-      const ueber = r.netto !== null && r.netto > 8;
+      const ueber = r.netto !== null && (isSa ? r.netto > 0 : r.netto > 8);
       const trKlasse = r.unvoll ? 'zeile-warnung' : (isSa ? 'zeile-samstag' : '');
 
       let badge;
@@ -2387,8 +2387,9 @@ function renderKalender(name, tagesMap) {
       const netto = nettoStunden(eintrag.beginn, eintrag.ende);
       stdText = netto !== null ? formatH(netto) : '▶';
       const spaet = isSpaet(eintrag.beginn);
-      const ueber = netto !== null && netto > 8;
-      if (isSa)        klasse = 'kal-samstag';
+      const ueber = netto !== null && (isSa ? netto > 0 : netto > 8);
+      if (isSa && ueber) klasse = 'kal-ueber';
+      else if (isSa)   klasse = 'kal-samstag';
       else if (spaet)  klasse = 'kal-spaet';
       else if (ueber)  klasse = 'kal-ueber';
       else             klasse = 'kal-normal';
