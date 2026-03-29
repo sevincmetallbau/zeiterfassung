@@ -839,6 +839,46 @@
     .ma-uk-rot { color: var(--accent) !important; }
     .ma-uk-blau { color: var(--blue) !important; }
 
+    /* ════════ ANTRAG BADGE ════════ */
+    .antrag-badge {
+      display: inline-block; background: var(--accent); color: white;
+      border-radius: 10px; font-size: 0.7rem; font-weight: 700;
+      padding: 1px 6px; margin-left: 5px; vertical-align: middle; line-height: 1.4;
+    }
+
+    /* ════════ ANTRÄGE BEREICH ════════ */
+    .uk-antraege-karte {
+      background: var(--card); border: 1px solid #5a3000;
+      border-radius: 12px; margin-bottom: 20px; overflow: hidden;
+    }
+    .uk-antraege-titel {
+      background: rgba(230,126,34,0.15); padding: 12px 16px;
+      font-weight: 700; font-size: 0.95rem; color: #f39c12;
+      border-bottom: 1px solid #5a3000;
+    }
+    .uk-antrag-zeile {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      gap: 12px; flex-wrap: wrap;
+    }
+    .uk-antrag-zeile:last-child { border-bottom: none; }
+    .uk-antrag-info { display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
+    .uk-antrag-info strong { font-size: 0.95rem; }
+    .uk-antrag-datum { color: var(--text2); font-size: 0.82rem; }
+    .uk-antrag-btns { display: flex; gap: 8px; flex-shrink: 0; }
+    .uk-genehmigen-btn {
+      background: rgba(39,174,96,0.15); color: #27ae60;
+      border: 1px solid rgba(39,174,96,0.4); border-radius: 8px;
+      padding: 7px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .uk-genehmigen-btn:hover { background: #27ae60; color: white; }
+    .uk-ablehnen-btn {
+      background: rgba(192,57,43,0.15); color: #e74c3c;
+      border: 1px solid rgba(192,57,43,0.4); border-radius: 8px;
+      padding: 7px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .uk-ablehnen-btn:hover { background: #c0392b; color: white; }
+
     /* ════════ URLAUB/KRANK TAB ════════ */
     .uk-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -1263,6 +1303,7 @@
 
   <!-- Tab: Urlaub / Krank -->
   <div class="tab-inhalt" id="tab-urlaubkrank">
+    <div id="uk-antraege-bereich"></div>
     <div class="uk-header">
       <div class="uk-nav">
         <button onclick="ukJahrAendern(-1)">&#8592;</button>
@@ -1663,6 +1704,9 @@ async function ladeAlles() {
   ladeHeute();
   ladeMonatsübersicht();
   ladeDetail();
+  // Badge für offene Anträge zeigen
+  var { data: offeneAntraege } = await sb.from('urlaub_antraege').select('id').eq('status', 'beantragt');
+  renderAntraege(offeneAntraege || []);
 }
 
 async function ladeUrlaubDaten() {
@@ -2733,6 +2777,7 @@ async function ladeUKTab() {
     .gte('datum', ukState.jahr+'-01-01')
     .lte('datum', ukState.jahr+'-12-31');
   ukState.urlaubData = data || [];
+  await ladeAntraege();
 
   // MA-Dropdown im Modal befüllen
   var sel = document.getElementById('uk-modal-ma');
@@ -2883,6 +2928,86 @@ async function ukNeuLaden() {
   await ladeUrlaubDaten();
   oeffneUKModal(ukState.aktivDatum);
   renderUKJahreskalender();
+}
+
+// ── URLAUBSANTRÄGE (GENEHMIGEN/ABLEHNEN) ──
+
+async function ladeAntraege() {
+  var { data } = await sb.from('urlaub_antraege')
+    .select('*').eq('status', 'beantragt')
+    .order('created_at');
+  renderAntraege(data || []);
+}
+
+function renderAntraege(antraege) {
+  var el = document.getElementById('uk-antraege-bereich');
+  if (!el) return;
+
+  // Badge auf Tab-Button
+  var tabBtn = document.querySelector('button.tab-btn[onclick*="urlaubkrank"]');
+  if (tabBtn) {
+    var badge = tabBtn.querySelector('.antrag-badge');
+    if (antraege.length > 0) {
+      if (!badge) { badge = document.createElement('span'); badge.className = 'antrag-badge'; tabBtn.appendChild(badge); }
+      badge.textContent = antraege.length;
+    } else if (badge) {
+      badge.remove();
+    }
+  }
+
+  if (antraege.length === 0) { el.innerHTML = ''; return; }
+
+  var typBez = { urlaub: 'Urlaub', krank: 'Krank', sonderurlaub: 'Sonderurlaub' };
+  el.innerHTML = '<div class="uk-antraege-karte">'
+    + '<div class="uk-antraege-titel">&#128235; Offene Urlaubsantr\u00e4ge (' + antraege.length + ')</div>'
+    + antraege.map(function(a) {
+        var vonDE = a.von.split('-').reverse().join('.');
+        var bisDE = a.bis.split('-').reverse().join('.');
+        var ds = a.von === a.bis ? vonDE : vonDE + ' \u2013 ' + bisDE;
+        return '<div class="uk-antrag-zeile">'
+          + '<div class="uk-antrag-info">'
+          + '<strong>' + a.mitarbeiter + '</strong>'
+          + '<span class="uk-antrag-datum">' + ds + ' &nbsp;\u00b7&nbsp; ' + (typBez[a.typ]||a.typ) + ' &nbsp;\u00b7&nbsp; ' + a.tage + ' Werktag(e)</span>'
+          + '</div>'
+          + '<div class="uk-antrag-btns">'
+          + '<button class="uk-genehmigen-btn" onclick="antragGenehmigen(' + a.id + ')">&#10003; Genehmigen</button>'
+          + '<button class="uk-ablehnen-btn" onclick="antragAblehnen(' + a.id + ')">&#215; Ablehnen</button>'
+          + '</div></div>';
+      }).join('')
+    + '</div>';
+}
+
+async function antragGenehmigen(id) {
+  var { data: antrag } = await sb.from('urlaub_antraege').select('*').eq('id', id).single();
+  if (!antrag) return;
+
+  // Alle Werktage in urlaub-Tabelle eintragen
+  var inserts = [];
+  var cur = new Date(antrag.von), end = new Date(antrag.bis);
+  while (cur <= end) {
+    var dow = cur.getDay();
+    if (dow >= 1 && dow <= 5) {
+      var ds = cur.getFullYear() + '-' + pad(cur.getMonth()+1) + '-' + pad(cur.getDate());
+      inserts.push({ mitarbeiter: antrag.mitarbeiter, datum: ds, typ: antrag.typ });
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  if (inserts.length > 0) {
+    var daten = inserts.map(function(i) { return i.datum; });
+    await sb.from('urlaub').delete().eq('mitarbeiter', antrag.mitarbeiter).in('datum', daten);
+    var { error } = await sb.from('urlaub').insert(inserts);
+    if (error) { alert('Fehler beim Eintragen: ' + error.message); return; }
+  }
+
+  await sb.from('urlaub_antraege').update({ status: 'genehmigt' }).eq('id', id);
+  await ladeUrlaubDaten();
+  await ladeUKTab();
+}
+
+async function antragAblehnen(id) {
+  if (!confirm('Antrag wirklich ablehnen?')) return;
+  await sb.from('urlaub_antraege').update({ status: 'abgelehnt' }).eq('id', id);
+  await ladeAntraege();
 }
 
 // ── JAHRESÜBERSICHT ──

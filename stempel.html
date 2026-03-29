@@ -264,6 +264,38 @@
     .progress-bar-wrap { width: 200px; height: 4px; background: var(--card); border-radius: 2px; margin: 12px auto 0; overflow: hidden; }
     .progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width linear; }
 
+    /* ── URLAUB ANTRAG ── */
+    .ua-info {
+      background: rgba(41,128,185,0.12); border: 1px solid rgba(41,128,185,0.3);
+      border-radius: 8px; padding: 10px 14px; font-size: 0.82rem;
+      color: var(--text2); margin-bottom: 16px; line-height: 1.5;
+    }
+    .ua-form-group { margin-bottom: 12px; }
+    .ua-form-group label { display: block; font-size: 0.8rem; color: var(--text2); margin-bottom: 4px; }
+    .ua-form-group input, .ua-form-group select {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; color: var(--text);
+      font-size: 0.95rem; outline: none;
+    }
+    .ua-form-group input:focus { border-color: var(--accent); }
+    .ua-btn {
+      width: 100%; background: #5d4a00; color: #ffd700;
+      border: 1px solid #7a6200; border-radius: 10px; padding: 14px;
+      font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 4px;
+    }
+    .ua-btn:active { opacity: 0.85; }
+    .ua-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ua-antrag {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    }
+    .ua-antrag-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .ua-antrag-datum { font-size: 0.95rem; font-weight: 700; }
+    .ua-antrag-typ { font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
+    .ua-badge-beantragt { background: rgba(230,126,34,0.2); color: #f39c12; border: 1px solid rgba(230,126,34,0.4); border-radius: 6px; padding: 3px 9px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    .ua-badge-genehmigt { background: rgba(39,174,96,0.2); color: #27ae60; border: 1px solid rgba(39,174,96,0.4); border-radius: 6px; padding: 3px 9px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    .ua-badge-abgelehnt { background: rgba(192,57,43,0.2); color: #e74c3c; border: 1px solid rgba(192,57,43,0.4); border-radius: 6px; padding: 3px 9px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+
     /* ── SPINNER ── */
     .spinner {
       width: 40px; height: 40px; border: 4px solid var(--card);
@@ -325,6 +357,7 @@
     <button class="haupt-tab aktiv" id="tab-btn-stempel" onclick="zeigeHauptTab('stempel',this)">⏱ Stempeln</button>
     <button class="haupt-tab" id="tab-btn-kunden" onclick="zeigeHauptTab('kunden',this)">📋 Kundenzeit</button>
     <button class="haupt-tab" id="tab-btn-stunden" onclick="zeigeHauptTab('stunden',this)">📊 Meine Stunden</button>
+    <button class="haupt-tab" id="tab-btn-urlaub" onclick="zeigeHauptTab('urlaub',this)">🏖 Urlaub</button>
   </div>
 
   <!-- Tab: Stempeln -->
@@ -385,6 +418,33 @@
     <div id="kz-liste"><div class="lade-text">&#8635; Lade…</div></div>
   </div>
 </div>
+
+  <!-- Tab: Urlaub beantragen -->
+  <div class="haupt-tab-inhalt" id="haupt-tab-urlaub" style="width:100%">
+    <div class="kz-section-titel">Urlaub beantragen</div>
+    <div class="ua-info">Dein Antrag wird an den Chef gesendet und muss zuerst genehmigt werden. Du siehst den Status hier.</div>
+    <div class="ua-form-group">
+      <label>Von *</label>
+      <input type="date" id="ua-von">
+    </div>
+    <div class="ua-form-group">
+      <label>Bis *</label>
+      <input type="date" id="ua-bis">
+    </div>
+    <div class="ua-form-group">
+      <label>Art</label>
+      <select id="ua-typ">
+        <option value="urlaub">Urlaub</option>
+        <option value="sonderurlaub">Sonderurlaub</option>
+      </select>
+    </div>
+    <button class="ua-btn" id="ua-senden-btn" onclick="antragSenden()">📤 Antrag einreichen</button>
+    <div class="kz-ok" id="ua-ok">✓ Antrag wurde gesendet!</div>
+    <div class="eintraege-header" style="margin-top:20px">
+      <h3>Meine Anträge</h3>
+    </div>
+    <div id="ua-liste"><div class="lade-text">Lade&#8230;</div></div>
+  </div>
 
 <!-- ════════════════════════════════════════
      SCREEN 4: BESTÄTIGUNG
@@ -589,6 +649,7 @@ function zeigeHauptTab(tab, btn) {
   document.getElementById('haupt-tab-' + tab).classList.add('aktiv');
   if (tab === 'kunden') ladeEigeneEintraege();
   if (tab === 'stunden') ladeMeineStunden();
+  if (tab === 'urlaub') ladeUrlaubAntraege();
 }
 
 // ── MEINE STUNDEN ──
@@ -1053,6 +1114,71 @@ async function loescheEintrag(id) {
   } catch (err) {
     alert('Fehler: ' + err.message);
   }
+}
+
+// ── URLAUB ANTRÄGE ──
+
+function uaWerktage(von, bis) {
+  var count = 0, cur = new Date(von), end = new Date(bis);
+  while (cur <= end) {
+    var dow = cur.getDay();
+    if (dow >= 1 && dow <= 5) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
+async function antragSenden() {
+  var von = document.getElementById('ua-von').value;
+  var bis = document.getElementById('ua-bis').value;
+  var typ = document.getElementById('ua-typ').value;
+  var btn = document.getElementById('ua-senden-btn');
+  if (!von || !bis) { alert('Bitte Von- und Bis-Datum angeben.'); return; }
+  if (bis < von) { alert('Bis-Datum muss nach Von-Datum liegen.'); return; }
+  var tage = uaWerktage(von, bis);
+  if (tage === 0) { alert('Kein Werktag im gewählten Zeitraum.'); return; }
+  btn.disabled = true; btn.textContent = 'Wird gesendet\u2026';
+  var { error } = await sb.from('urlaub_antraege').insert([{
+    mitarbeiter: aktiverMA.name, von: von, bis: bis, typ: typ, tage: tage, status: 'beantragt'
+  }]);
+  if (error) {
+    alert('Fehler: ' + error.message);
+    btn.disabled = false; btn.textContent = '📤 Antrag einreichen';
+    return;
+  }
+  document.getElementById('ua-von').value = '';
+  document.getElementById('ua-bis').value = '';
+  var ok = document.getElementById('ua-ok');
+  ok.style.display = 'block';
+  setTimeout(function() { ok.style.display = 'none'; }, 3000);
+  btn.disabled = false; btn.textContent = '📤 Antrag einreichen';
+  ladeUrlaubAntraege();
+}
+
+async function ladeUrlaubAntraege() {
+  var liste = document.getElementById('ua-liste');
+  liste.innerHTML = '<div class="lade-text">Lade\u2026</div>';
+  var { data } = await sb.from('urlaub_antraege')
+    .select('*').eq('mitarbeiter', aktiverMA.name)
+    .order('created_at', { ascending: false }).limit(20);
+  if (!data || data.length === 0) {
+    liste.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;text-align:center;padding:16px 0">Noch keine Anträge gestellt.</div>';
+    return;
+  }
+  var typBez = { urlaub: 'Urlaub', krank: 'Krank', sonderurlaub: 'Sonderurlaub' };
+  var badges = {
+    beantragt: '<span class="ua-badge-beantragt">⏳ Beantragt</span>',
+    genehmigt: '<span class="ua-badge-genehmigt">✓ Genehmigt</span>',
+    abgelehnt: '<span class="ua-badge-abgelehnt">✗ Abgelehnt</span>'
+  };
+  liste.innerHTML = data.map(function(a) {
+    var vonDE = formatDatumKurz(a.von), bisDE = formatDatumKurz(a.bis);
+    var ds = a.von === a.bis ? vonDE : vonDE + ' \u2013 ' + bisDE;
+    return '<div class="ua-antrag"><div class="ua-antrag-top">'
+      + '<div><div class="ua-antrag-datum">' + ds + '</div>'
+      + '<div class="ua-antrag-typ">' + (typBez[a.typ]||a.typ) + ' \u00b7 ' + a.tage + ' Werktag(e)</div></div>'
+      + (badges[a.status] || a.status) + '</div></div>';
+  }).join('');
 }
 
 // ── ABMELDEN ──
