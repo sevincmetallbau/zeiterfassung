@@ -837,6 +837,7 @@
     .ma-uk-gruen { color: var(--green) !important; }
     .ma-uk-orange { color: var(--orange) !important; }
     .ma-uk-rot { color: var(--accent) !important; }
+    .ma-uk-blau { color: var(--blue) !important; }
 
     .modal-reiter-leiste {
       display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap;
@@ -1790,17 +1791,20 @@ async function ladeMonatsübersicht() {
       const karte = document.createElement('div');
       karte.className = 'ma-uebersicht-karte';
       karte.onclick = function() { oeffneMAModal(r.name); };
+      const saTxt = r.tageSa > 0 ? '<span class="ma-uk-blau">' + r.tageSa + '</span>' : '<span>–</span>';
       if (r.name === 'Volkan Sevinc') {
         karte.innerHTML =
           '<div class="ma-uk-name">' + r.name + '</div>'
-          + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>';
+          + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
+          + '<div class="ma-uk-zeile">Sa-Tage ' + saTxt + '</div>';
       } else {
         karte.innerHTML =
           '<div class="ma-uk-name">' + r.name + '</div>'
           + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
           + '<div class="ma-uk-zeile">Über/Minus <span class="' + diffKl + '">' + diffTxt + '</span></div>'
           + '<div class="ma-uk-zeile">Fehlzeiten <span class="' + (r.fehlTage > 0 ? 'ma-uk-rot' : '') + '">' + r.fehlTage + ' Tage</span></div>'
-          + '<div class="ma-uk-zeile">Zu spät <span class="' + (r.zuSpaet > 0 ? 'ma-uk-rot' : '') + '">' + (r.zuSpaet || '–') + '</span></div>';
+          + '<div class="ma-uk-zeile">Zu spät <span class="' + (r.zuSpaet > 0 ? 'ma-uk-rot' : '') + '">' + (r.zuSpaet || '–') + '</span></div>'
+          + '<div class="ma-uk-zeile">Sa-Tage ' + saTxt + '</div>';
       }
       kartenReihe.appendChild(karte);
     });
