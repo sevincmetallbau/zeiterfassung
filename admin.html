@@ -839,6 +839,75 @@
     .ma-uk-rot { color: var(--accent) !important; }
     .ma-uk-blau { color: var(--blue) !important; }
 
+    /* ════════ URLAUB/KRANK TAB ════════ */
+    .uk-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+    }
+    .uk-nav { display: flex; align-items: center; gap: 10px; }
+    .uk-nav button {
+      background: none; border: 1px solid var(--border); color: var(--text);
+      border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 1rem;
+    }
+    .uk-nav button:hover { background: var(--card2); }
+    .uk-jahr-label { font-size: 1.2rem; font-weight: 700; min-width: 60px; text-align: center; }
+    .uk-legende { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text2); }
+    .uk-legend-item { display: flex; align-items: center; gap: 5px; }
+    .uk-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .uk-dot-urlaub   { background: #a08000; }
+    .uk-dot-krank    { background: #7b2fbe; }
+    .uk-dot-sonder   { background: #1a5e8a; }
+    .uk-dot-feiertag { background: #1a5e3a; }
+
+    .uk-jahreskalender {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .uk-monat-karte {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .uk-monat-titel {
+      background: var(--card2); padding: 8px 14px;
+      font-weight: 600; font-size: 0.9rem;
+    }
+    .uk-kal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 2px; padding: 10px;
+    }
+    .uk-kal-kopf {
+      font-size: 0.7rem; color: var(--text2); text-align: center;
+      padding: 2px 0 4px;
+    }
+    .uk-kal-tag {
+      border-radius: 6px; padding: 4px 2px 3px;
+      cursor: pointer; transition: background 0.1s;
+      min-height: 38px; display: flex; flex-direction: column;
+      align-items: center; gap: 2px;
+    }
+    .uk-kal-tag:hover { background: var(--card2) !important; }
+    .uk-kal-tag.leer { cursor: default; pointer-events: none; }
+    .uk-kal-tag.wochenende { opacity: 0.55; }
+    .uk-kal-tag.feiertag { background: rgba(26,94,58,0.3) !important; }
+    .uk-kal-tag.feiertag .uk-tag-nr { color: #56d48a; }
+    .uk-tag-nr { font-size: 0.78rem; line-height: 1; }
+    .uk-tag-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+    .uk-ma-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .uk-ma-dot-urlaub   { background: #ffd700; }
+    .uk-ma-dot-krank    { background: #c77dff; }
+    .uk-ma-dot-sonder   { background: #74b9ff; }
+
+    .uk-eintraege-liste { font-size: 0.88rem; }
+    .uk-eintrag-zeile {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid var(--border);
+    }
+    .uk-eintrag-zeile:last-child { border-bottom: none; }
+
     .modal-reiter-leiste {
       display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap;
     }
@@ -966,7 +1035,7 @@
       body { background: white; color: black; font-size: 12px; }
       /* Standard-Druck: Monatsübersicht */
       #login-overlay, #header, .qr-sektion, .heute-leiste, .karten-reihe, .tabs,
-      #tab-detail, #tab-mitarbeiter, #tab-jahres,
+      #tab-detail, #tab-mitarbeiter, #tab-jahres, #tab-urlaubkrank,
       button, .abmelden-btn { display: none !important; }
       #dashboard { padding: 0; }
       #tab-monat { display: block !important; }
@@ -1063,6 +1132,7 @@
     <button class="tab-btn" onclick="zeigeTab('mitarbeiter', this)">Mitarbeiter</button>
     <button class="tab-btn" onclick="zeigeTab('jahres', this)">Jahresübersicht</button>
     <button class="tab-btn" onclick="zeigeTab('kundenzeiten', this)">Kundenzeiten</button>
+    <button class="tab-btn" onclick="zeigeTab('urlaubkrank', this)">Urlaub / Krank</button>
   </div>
 
   <!-- Druck-Kopfzeile (nur beim Drucken sichtbar) -->
@@ -1191,7 +1261,55 @@
     <div id="kz-zusammenfassung"></div>
   </div>
 
+  <!-- Tab: Urlaub / Krank -->
+  <div class="tab-inhalt" id="tab-urlaubkrank">
+    <div class="uk-header">
+      <div class="uk-nav">
+        <button onclick="ukJahrAendern(-1)">&#8592;</button>
+        <span id="uk-jahr-label" class="uk-jahr-label">–</span>
+        <button onclick="ukJahrAendern(+1)">&#8594;</button>
+      </div>
+      <div class="uk-legende">
+        <span class="uk-legend-item"><span class="uk-dot uk-dot-urlaub"></span> Urlaub</span>
+        <span class="uk-legend-item"><span class="uk-dot uk-dot-krank"></span> Krank</span>
+        <span class="uk-legend-item"><span class="uk-dot uk-dot-sonder"></span> Sonderurlaub</span>
+        <span class="uk-legend-item"><span class="uk-dot uk-dot-feiertag"></span> Feiertag RLP</span>
+      </div>
+    </div>
+    <div id="uk-jahreskalender"></div>
+  </div>
+
 </div><!-- /dashboard -->
+
+<!-- ════ URLAUB/KRANK TAGES-MODAL ════ -->
+<div class="modal-bg" id="uk-tag-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 id="uk-modal-datum">–</h2>
+      <button class="modal-close" onclick="schliesseModal('uk-tag-modal')">&#215;</button>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <div id="uk-modal-feiertag-info" style="display:none;background:rgba(41,128,185,0.15);border:1px solid var(--blue);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:#74b9ff;font-size:0.9rem;"></div>
+      <div id="uk-modal-eintraege" style="margin-bottom:16px;"></div>
+      <hr style="border-color:var(--border);margin:12px 0;">
+      <div style="font-size:0.88rem;color:var(--text2);margin-bottom:8px;">Eintrag hinzufügen / ändern:</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <select id="uk-modal-ma" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:0.9rem;">
+          <option value="">Mitarbeiter wählen…</option>
+        </select>
+        <select id="uk-modal-typ" style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:0.9rem;">
+          <option value="urlaub">Urlaub</option>
+          <option value="krank">Krank</option>
+          <option value="sonderurlaub">Sonderurlaub</option>
+        </select>
+        <div style="display:flex;gap:10px;">
+          <button onclick="ukEintragen()" style="flex:1;background:var(--accent);color:white;border:none;border-radius:8px;padding:11px;font-size:0.95rem;font-weight:600;cursor:pointer;">Eintragen</button>
+          <button onclick="ukLoeschenModal()" style="flex:1;background:var(--card2);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:11px;font-size:0.9rem;cursor:pointer;">Löschen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════
      MITARBEITER-DETAIL-MODAL
@@ -2568,6 +2686,205 @@ async function loescheUrlaub(id) {
   oeffneMAModal(state.aktuellerModalMA);
 }
 
+// ── URLAUB / KRANK TAB ──
+
+function osterDatumUK(jahr) {
+  var a=jahr%19,b=Math.floor(jahr/100),c=jahr%100,d=Math.floor(b/4),e=b%4,
+      f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+      i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+      month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(jahr, month-1, day);
+}
+
+function feiertageRLP(jahr) {
+  var os = osterDatumUK(jahr);
+  function addT(d,t){ var x=new Date(d); x.setDate(x.getDate()+t); return x; }
+  function fmt(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  var f = {};
+  f[fmt(new Date(jahr,0,1))]='Neujahr';
+  f[fmt(addT(os,-2))]='Karfreitag';
+  f[fmt(os)]='Ostersonntag';
+  f[fmt(addT(os,1))]='Ostermontag';
+  f[fmt(new Date(jahr,4,1))]='Tag der Arbeit';
+  f[fmt(addT(os,39))]='Christi Himmelfahrt';
+  f[fmt(addT(os,49))]='Pfingstsonntag';
+  f[fmt(addT(os,50))]='Pfingstmontag';
+  f[fmt(addT(os,60))]='Fronleichnam';
+  f[fmt(new Date(jahr,9,3))]='Tag der Deutschen Einheit';
+  f[fmt(new Date(jahr,10,1))]='Allerheiligen';
+  f[fmt(new Date(jahr,11,25))]='1. Weihnachtstag';
+  f[fmt(new Date(jahr,11,26))]='2. Weihnachtstag';
+  return f;
+}
+
+let ukState = { jahr: new Date().getFullYear(), aktivDatum: null };
+
+function ukJahrAendern(delta) {
+  ukState.jahr += delta;
+  document.getElementById('uk-jahr-label').textContent = ukState.jahr;
+  renderUKJahreskalender();
+}
+
+async function ladeUKTab() {
+  ukState.jahr = state.jahr;
+  document.getElementById('uk-jahr-label').textContent = ukState.jahr;
+  // Urlaub-Daten für dieses Jahr laden
+  var { data } = await sb.from('urlaub').select('*')
+    .gte('datum', ukState.jahr+'-01-01')
+    .lte('datum', ukState.jahr+'-12-31');
+  ukState.urlaubData = data || [];
+
+  // MA-Dropdown im Modal befüllen
+  var sel = document.getElementById('uk-modal-ma');
+  sel.innerHTML = '<option value="">Mitarbeiter wählen…</option>';
+  state.alleMitarbeiter.forEach(function(ma) {
+    var o = document.createElement('option');
+    o.value = ma.name; o.textContent = ma.name;
+    sel.appendChild(o);
+  });
+
+  renderUKJahreskalender();
+}
+
+function renderUKJahreskalender() {
+  var feiertage = feiertageRLP(ukState.jahr);
+  // Urlaub-Map: datum → [{mitarbeiter, typ}]
+  var urlaubMap = {};
+  (ukState.urlaubData || []).forEach(function(u) {
+    if (!urlaubMap[u.datum]) urlaubMap[u.datum] = [];
+    urlaubMap[u.datum].push(u);
+  });
+
+  var html = '<div class="uk-jahreskalender">';
+  var monate = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+  for (var m = 0; m < 12; m++) {
+    html += '<div class="uk-monat-karte">';
+    html += '<div class="uk-monat-titel">' + monate[m] + ' ' + ukState.jahr + '</div>';
+    html += '<div class="uk-kal-grid">';
+    // Wochentag-Köpfe
+    ['Mo','Di','Mi','Do','Fr','Sa','So'].forEach(function(t) {
+      html += '<div class="uk-kal-kopf">'+t+'</div>';
+    });
+
+    var ersterTag = new Date(ukState.jahr, m, 1);
+    var ersterDow = (ersterTag.getDay() + 6) % 7; // 0=Mo
+    var tageImMonat = new Date(ukState.jahr, m+1, 0).getDate();
+
+    // Leere Zellen vor dem 1.
+    for (var z = 0; z < ersterDow; z++) {
+      html += '<div class="uk-kal-tag leer"></div>';
+    }
+
+    for (var tag = 1; tag <= tageImMonat; tag++) {
+      var datum = ukState.jahr + '-' + pad(m+1) + '-' + pad(tag);
+      var dow = new Date(ukState.jahr, m, tag).getDay(); // 0=So,6=Sa
+      var istWE = dow === 0 || dow === 6;
+      var istFT = !!feiertage[datum];
+      var eintraege = urlaubMap[datum] || [];
+
+      var klassen = 'uk-kal-tag';
+      if (istWE) klassen += ' wochenende';
+      if (istFT) klassen += ' feiertag';
+
+      var ftName = istFT ? feiertage[datum] : '';
+      var title = istFT ? ftName : datum;
+
+      html += '<div class="' + klassen + '" onclick="oeffneUKModal(\'' + datum + '\')" title="' + title + '">';
+      html += '<span class="uk-tag-nr">' + tag + '</span>';
+      html += '<div class="uk-tag-dots">';
+      eintraege.forEach(function(e) {
+        var dotKlasse = 'uk-ma-dot uk-ma-dot-' + e.typ;
+        html += '<span class="' + dotKlasse + '" title="' + e.mitarbeiter + ': ' + e.typ + '"></span>';
+      });
+      html += '</div>';
+      html += '</div>';
+    }
+    html += '</div></div>'; // /uk-kal-grid /uk-monat-karte
+  }
+  html += '</div>';
+
+  document.getElementById('uk-jahreskalender').innerHTML = html;
+}
+
+function oeffneUKModal(datum) {
+  ukState.aktivDatum = datum;
+  var feiertage = feiertageRLP(ukState.jahr);
+  var teile = datum.split('-');
+  var datumDE = teile[2] + '.' + teile[1] + '.' + teile[0];
+  var dow = new Date(datum).getDay();
+  var tagNamen = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+  document.getElementById('uk-modal-datum').textContent = tagNamen[dow] + ', ' + datumDE;
+
+  // Feiertag-Info
+  var ftInfo = document.getElementById('uk-modal-feiertag-info');
+  if (feiertage[datum]) {
+    ftInfo.style.display = 'block';
+    ftInfo.textContent = '🎉 Feiertag RLP: ' + feiertage[datum];
+  } else {
+    ftInfo.style.display = 'none';
+  }
+
+  // Bestehende Einträge
+  var eintraege = (ukState.urlaubData || []).filter(function(u) { return u.datum === datum; });
+  var typBez = { urlaub: 'Urlaub', krank: 'Krank', sonderurlaub: 'Sonderurlaub' };
+  var liste = document.getElementById('uk-modal-eintraege');
+  if (eintraege.length === 0) {
+    liste.innerHTML = '<div style="color:var(--text2);font-size:0.85rem;">Noch kein Eintrag für diesen Tag.</div>';
+  } else {
+    liste.innerHTML = '<div class="uk-eintraege-liste">' +
+      eintraege.map(function(e) {
+        return '<div class="uk-eintrag-zeile">'
+          + '<span>' + e.mitarbeiter + '</span>'
+          + '<span class="urlaub-typ-badge urlaub-typ-' + e.typ + '">' + (typBez[e.typ]||e.typ) + '</span>'
+          + '</div>';
+      }).join('') + '</div>';
+  }
+
+  // MA-Reset
+  document.getElementById('uk-modal-ma').value = '';
+  document.getElementById('uk-modal-typ').value = 'urlaub';
+
+  document.getElementById('uk-tag-modal').classList.add('offen');
+}
+
+async function ukEintragen() {
+  var datum = ukState.aktivDatum;
+  var ma    = document.getElementById('uk-modal-ma').value;
+  var typ   = document.getElementById('uk-modal-typ').value;
+  if (!ma) { alert('Bitte Mitarbeiter wählen.'); return; }
+
+  // Vorhandenen Eintrag löschen und neu setzen
+  await sb.from('urlaub').delete().eq('mitarbeiter', ma).eq('datum', datum);
+  var { error } = await sb.from('urlaub').insert([{ mitarbeiter: ma, datum: datum, typ: typ }]);
+  if (error) { alert('Fehler: ' + error.message); return; }
+
+  await ukNeuLaden();
+}
+
+async function ukLoeschenModal() {
+  var datum = ukState.aktivDatum;
+  var ma    = document.getElementById('uk-modal-ma').value;
+  if (!ma) { alert('Bitte Mitarbeiter wählen, dessen Eintrag gelöscht werden soll.'); return; }
+  if (!confirm(ma + ' am ' + datum + ' wirklich löschen?')) return;
+
+  var { error } = await sb.from('urlaub').delete().eq('mitarbeiter', ma).eq('datum', datum);
+  if (error) { alert('Fehler: ' + error.message); return; }
+
+  await ukNeuLaden();
+}
+
+async function ukNeuLaden() {
+  var { data } = await sb.from('urlaub').select('*')
+    .gte('datum', ukState.jahr+'-01-01')
+    .lte('datum', ukState.jahr+'-12-31');
+  ukState.urlaubData = data || [];
+  // Auch globalen Urlaub-State aktualisieren
+  await ladeUrlaubDaten();
+  oeffneUKModal(ukState.aktivDatum);
+  renderUKJahreskalender();
+}
+
 // ── JAHRESÜBERSICHT ──
 
 function jahresAendern(delta) {
@@ -2794,6 +3111,7 @@ function zeigeTab(tab, btn) {
     ladeJahresübersicht();
   }
   if (tab === 'kundenzeiten') initKundenzeiten();
+  if (tab === 'urlaubkrank') ladeUKTab();
 }
 
 // ── MODAL ──
