@@ -1814,16 +1814,29 @@ async function ladeMonatsübersicht() {
       const diffText = (diff > 0 ? '+' : '') + formatH(diff);
 
       const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td><span class="ma-link" onclick="oeffneMAModal(\'' + r.name.replace(/'/g, "\\'") + '\')">' + r.name + '</span></td>'
-        + '<td>' + r.tageWoche + '</td>'
-        + '<td class="td-blau">' + (r.tageSa || '–') + '</td>'
-        + '<td>' + formatH(r.stdWoche) + '</td>'
-        + '<td class="td-blau">' + (r.tageSa > 0 ? formatH(r.stdSa) : '–') + '</td>'
-        + '<td><strong>' + formatH(r.gesamt) + '</strong></td>'
-        + '<td>' + formatH(r.soll) + '</td>'
-        + '<td class="' + diffKlasse + '"><strong>' + diffText + '</strong></td>'
-        + '<td class="' + (r.zuSpaet > 0 ? 'td-rot' : '') + '">' + (r.zuSpaet || '–') + '</td>';
+      if (r.name === 'Volkan Sevinc') {
+        tr.innerHTML =
+          '<td><span class="ma-link" onclick="oeffneMAModal(\'' + r.name.replace(/'/g, "\\'") + '\')">' + r.name + '</span></td>'
+          + '<td>' + r.tageWoche + '</td>'
+          + '<td class="td-blau">' + (r.tageSa || '–') + '</td>'
+          + '<td>' + formatH(r.stdWoche) + '</td>'
+          + '<td class="td-blau">' + (r.tageSa > 0 ? formatH(r.stdSa) : '–') + '</td>'
+          + '<td><strong>' + formatH(r.gesamt) + '</strong></td>'
+          + '<td>–</td>'
+          + '<td>–</td>'
+          + '<td>–</td>';
+      } else {
+        tr.innerHTML =
+          '<td><span class="ma-link" onclick="oeffneMAModal(\'' + r.name.replace(/'/g, "\\'") + '\')">' + r.name + '</span></td>'
+          + '<td>' + r.tageWoche + '</td>'
+          + '<td class="td-blau">' + (r.tageSa || '–') + '</td>'
+          + '<td>' + formatH(r.stdWoche) + '</td>'
+          + '<td class="td-blau">' + (r.tageSa > 0 ? formatH(r.stdSa) : '–') + '</td>'
+          + '<td><strong>' + formatH(r.gesamt) + '</strong></td>'
+          + '<td>' + formatH(r.soll) + '</td>'
+          + '<td class="' + diffKlasse + '"><strong>' + diffText + '</strong></td>'
+          + '<td class="' + (r.zuSpaet > 0 ? 'td-rot' : '') + '">' + (r.zuSpaet || '–') + '</td>';
+      }
       tbody.appendChild(tr);
     });
 
@@ -2696,8 +2709,8 @@ async function ladeJahresübersicht() {
           + '<td>' + monatNamen[m - 1] + '</td>'
           + '<td>' + arbeitstage + '</td>'
           + '<td>' + formatH(stdGearbeitet) + '</td>'
-          + '<td>' + formatH(soll) + '</td>'
-          + '<td class="' + ueberKlasse + '"><strong>' + ueberText + '</strong></td>'
+          + '<td>' + (maName === 'Volkan Sevinc' ? '–' : formatH(soll)) + '</td>'
+          + '<td class="' + (maName === 'Volkan Sevinc' ? '' : ueberKlasse) + '"><strong>' + (maName === 'Volkan Sevinc' ? '–' : ueberText) + '</strong></td>'
           + '<td>' + (urlaubTage > 0 ? '<span style="color:#ffd700;font-weight:700">' + urlaubTage + ' Tag' + (urlaubTage > 1 ? 'e' : '') + '</span><br><span style="font-size:0.75rem;color:#a0946a">' + urlaubDaten.map(function(d){ return d.substring(8,10)+'.'+d.substring(5,7)+'.'; }).join(', ') + '</span>' : '–') + '</td>'
           + '<td>' + (krankTage > 0 ? '<span style="color:#c77dff;font-weight:700">' + krankTage + ' Tag' + (krankTage > 1 ? 'e' : '') + '</span><br><span style="font-size:0.75rem;color:#9a80b5">' + krankDaten.map(function(d){ return d.substring(8,10)+'.'+d.substring(5,7)+'.'; }).join(', ') + '</span>' : '–') + '</td>'
           + '<td>' + (saTage > 0 ? '<span class="td-blau">' + saTage + '</span>' : '–') + '</td>'
@@ -2714,8 +2727,8 @@ async function ladeJahresübersicht() {
         + '<td><strong>Gesamt</strong></td>'
         + '<td><strong>' + gesamtArbeitstage + '</strong></td>'
         + '<td><strong>' + formatH(gesamtStd) + '</strong></td>'
-        + '<td><strong>' + formatH(gesamtSoll) + '</strong></td>'
-        + '<td class="' + gesamtUeberKlasse + '"><strong>' + gesamtUeberText + '</strong></td>'
+        + '<td><strong>' + (maName === 'Volkan Sevinc' ? '–' : formatH(gesamtSoll)) + '</strong></td>'
+        + '<td class="' + (maName === 'Volkan Sevinc' ? '' : gesamtUeberKlasse) + '"><strong>' + (maName === 'Volkan Sevinc' ? '–' : gesamtUeberText) + '</strong></td>'
         + '<td><strong style="color:#ffd700">' + (gesamtUrlaub || '–') + '</strong></td>'
         + '<td><strong style="color:#c77dff">' + (gesamtKrank || '–') + '</strong></td>'
         + '<td><strong class="td-blau">' + (gesamtSaEinsatz || '–') + '</strong></td>'
