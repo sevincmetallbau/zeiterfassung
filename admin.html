@@ -1790,12 +1790,19 @@ async function ladeMonatsübersicht() {
       const karte = document.createElement('div');
       karte.className = 'ma-uebersicht-karte';
       karte.onclick = function() { oeffneMAModal(r.name); };
-      karte.innerHTML =
-        '<div class="ma-uk-name">' + r.name + '</div>'
-        + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
-        + '<div class="ma-uk-zeile">Über/Minus <span class="' + diffKl + '">' + diffTxt + '</span></div>'
-        + '<div class="ma-uk-zeile">Fehlzeiten <span class="' + (r.fehlTage > 0 ? 'ma-uk-rot' : '') + '">' + r.fehlTage + ' Tage</span></div>'
-        + '<div class="ma-uk-zeile">Zu spät <span class="' + (r.zuSpaet > 0 ? 'ma-uk-rot' : '') + '">' + (r.zuSpaet || '–') + '</span></div>';
+      if (r.name === 'Volkan Sevinc') {
+        karte.innerHTML =
+          '<div class="ma-uk-name">' + r.name + '</div>'
+          + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
+          + '<div class="ma-uk-zeile">Über/Minus <span class="' + diffKl + '">' + diffTxt + '</span></div>';
+      } else {
+        karte.innerHTML =
+          '<div class="ma-uk-name">' + r.name + '</div>'
+          + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
+          + '<div class="ma-uk-zeile">Über/Minus <span class="' + diffKl + '">' + diffTxt + '</span></div>'
+          + '<div class="ma-uk-zeile">Fehlzeiten <span class="' + (r.fehlTage > 0 ? 'ma-uk-rot' : '') + '">' + r.fehlTage + ' Tage</span></div>'
+          + '<div class="ma-uk-zeile">Zu spät <span class="' + (r.zuSpaet > 0 ? 'ma-uk-rot' : '') + '">' + (r.zuSpaet || '–') + '</span></div>';
+      }
       kartenReihe.appendChild(karte);
     });
     if (rows.length === 0) kartenReihe.innerHTML = '<div class="lade-hinweis">Keine Mitarbeiter.</div>';
