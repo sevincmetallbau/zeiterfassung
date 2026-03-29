@@ -2165,6 +2165,7 @@ async function oeffneMAModal(name) {
       if (dow === 6) {
         tageSa++;
         gesamtH += netto || 0;
+        if (netto !== null && netto > 0) ueberH += netto;
       } else if (dow >= 1 && dow <= 5) {
         tageWoche++;
         gesamtH += netto || 0;
