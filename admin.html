@@ -1793,8 +1793,7 @@ async function ladeMonatsübersicht() {
       if (r.name === 'Volkan Sevinc') {
         karte.innerHTML =
           '<div class="ma-uk-name">' + r.name + '</div>'
-          + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>'
-          + '<div class="ma-uk-zeile">Über/Minus <span class="' + diffKl + '">' + diffTxt + '</span></div>';
+          + '<div class="ma-uk-zeile">Std. gesamt <span class="ma-uk-gruen">' + formatH(r.gesamt) + '</span></div>';
       } else {
         karte.innerHTML =
           '<div class="ma-uk-name">' + r.name + '</div>'
