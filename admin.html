@@ -1674,6 +1674,15 @@ function heuteDatum() {
   return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 }
 
+// Überstunden: erst ab 16:10 Uhr (Werktage)
+function ueberNach1610(ende) {
+  if (!ende) return 0;
+  const [eh, em] = ende.split(':').map(Number);
+  const endeMin = eh * 60 + em;
+  const grenze = 16 * 60 + 10; // 16:10
+  return endeMin > grenze ? (endeMin - grenze) / 60 : 0;
+}
+
 function nettoStunden(beginn, ende) {
   if (!beginn || !ende) return null;
   const [bh, bm] = beginn.split(':').map(Number);
@@ -1987,7 +1996,7 @@ async function ladeMonatsübersicht() {
 
     const rows = state.alleMitarbeiter.map(function(ma) {
       let tageWoche = 0, tageSa = 0, tageFT = 0;
-      let stdWoche = 0, stdSa = 0, stdFT = 0;
+      let stdWoche = 0, stdSa = 0, stdFT = 0, ueberWoche = 0;
       let zuSpaet = 0;
       let fehlTage = 0;
 
@@ -2021,6 +2030,7 @@ async function ladeMonatsübersicht() {
           } else if (isWerktag) {
             tageWoche++;
             stdWoche += netto || 0;
+            ueberWoche += ueberNach1610(eintrag.ende);
             if (isSpaet(eintrag.beginn)) zuSpaet++;
           }
         } else if (isWerktag && !isFeiertag) {
@@ -2030,7 +2040,7 @@ async function ladeMonatsübersicht() {
       }
 
       const gesamt = stdWoche + stdSa + stdFT;
-      const ueber  = (stdWoche - (tageWoche * 8)) + stdSa + stdFT;
+      const ueber  = ueberWoche + stdSa + stdFT;
 
       gesamtStunden += gesamt;
       if (ueber > 0) gesamtUeber += ueber;
@@ -2470,7 +2480,7 @@ async function oeffneMAModal(name) {
       } else if (dow >= 1 && dow <= 5) {
         tageWoche++;
         gesamtH += netto || 0;
-        if (netto !== null && netto > 8) ueberH += netto - 8;
+        ueberH += ueberNach1610(eintrag.ende);
         if (isSpaet(eintrag.beginn)) zuSpaet++;
       }
     }
@@ -2524,8 +2534,18 @@ async function oeffneMAModal(name) {
       const ende   = eintrag ? eintrag.ende   : null;
       const netto  = nettoStunden(beginn, ende);
       const isFTZeile = dow >= 1 && dow <= 5 && !!ftMapModal[d];
-      const sollH  = (dow >= 1 && dow <= 5 && !isFTZeile) ? 8 : 0;  // Feiertag + Sa kein Soll
-      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : ((dow >= 1 && dow <= 5 && !isFTZeile) ? -8 : null);
+      const isWerktag1610 = dow >= 1 && dow <= 5 && !isFTZeile;
+      var diff;
+      if (netto === null) {
+        diff = isWerktag1610 ? -8 : null;
+      } else if (isWerktag1610) {
+        // Werktag: Überstunden erst ab 16:10, Minus wenn < 8h
+        const ue1610 = ueberNach1610(ende);
+        diff = netto < 8 ? +(netto - 8).toFixed(2) : +(ue1610).toFixed(2);
+      } else {
+        // Sa/Feiertag: alles Überstunden
+        diff = +netto.toFixed(2);
+      }
       zeilen.push({ d, dow, beginn, ende, netto, diff, isSa: dow === 6, isFT: isFTZeile });
     }
     zeilen.reverse();
@@ -3229,7 +3249,7 @@ async function ladeJahresübersicht() {
         const anzTage = new Date(state.jahresJahr, m, 0).getDate();
         let arbeitstage = 0, stdGearbeitet = 0, soll = 0;
         let urlaubTage = 0, krankTage = 0, saTage = 0, schulferienTage = 0, ftTage = 0;
-        let stdFT = 0;
+        let stdFT = 0, stdSaJahr = 0, ueberWerktage = 0;
         const urlaubDaten = [], krankDaten = [], schulferienNamen = new Set();
 
         for (let t = 1; t <= anzTage; t++) {
@@ -3271,15 +3291,17 @@ async function ladeJahresübersicht() {
               arbeitstage++;
               const netto = nettoStunden(stamp.beginn, stamp.ende);
               stdGearbeitet += netto || 0;
+              ueberWerktage += ueberNach1610(stamp.ende);
             }
           } else if (isSa && stamp && stamp.beginn) {
             saTage++;
             const netto = nettoStunden(stamp.beginn, stamp.ende);
             stdGearbeitet += netto || 0;
+            stdSaJahr += netto || 0;
           }
         }
 
-        const ueber = stdGearbeitet - (arbeitstage * 8);
+        const ueber = ueberWerktage + stdSaJahr + stdFT;
         gesamtArbeitstage += arbeitstage;
         gesamtStd         += stdGearbeitet;
         gesamtSoll        += soll;

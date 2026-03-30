@@ -495,6 +495,14 @@ function formatDatumKurz(s) {
   return dd + '.' + m + '.' + y;
 }
 
+function ueberNach1610(ende) {
+  if (!ende) return 0;
+  const [eh, em] = ende.split(':').map(Number);
+  const endeMin = eh * 60 + em;
+  const grenze = 16 * 60 + 10;
+  return endeMin > grenze ? (endeMin - grenze) / 60 : 0;
+}
+
 function nettoStunden(beginn, ende) {
   if (!beginn || !ende) return null;
   const [bh, bm] = beginn.split(':').map(Number);
@@ -744,8 +752,16 @@ async function ladeMeineStunden() {
       const ende   = tagesMap[d] ? tagesMap[d].ende   : null;
       const netto  = nettoStunden(beginn, ende);
       const isFT = dow >= 1 && dow <= 5 && !!ftMap[d];
-      const sollH  = (dow >= 1 && dow <= 5 && !isFT) ? 8 : 0;  // Feiertag + Sa kein Soll
-      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : ((dow >= 1 && dow <= 5 && !isFT) ? -8 : null);
+      const isWerktag1610 = dow >= 1 && dow <= 5 && !isFT;
+      var diff;
+      if (netto === null) {
+        diff = isWerktag1610 ? -8 : null;
+      } else if (isWerktag1610) {
+        const ue1610 = ueberNach1610(ende);
+        diff = netto < 8 ? +(netto - 8).toFixed(2) : +(ue1610).toFixed(2);
+      } else {
+        diff = +netto.toFixed(2);
+      }
       zeilen.push({ d, dow, beginn, ende, netto, diff, isFT });
     }
 
