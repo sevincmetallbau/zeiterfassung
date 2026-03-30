@@ -665,12 +665,42 @@ function msMonatAendern(delta) {
   ladeMeineStunden();
 }
 
+function osterDatumMS(jahr) {
+  var a=jahr%19,b=Math.floor(jahr/100),c=jahr%100,d=Math.floor(b/4),e=b%4,
+      f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+      i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+      month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(jahr, month-1, day);
+}
+function feiertageRLP(jahr) {
+  var os = osterDatumMS(jahr);
+  function addT(d,t){ var x=new Date(d); x.setDate(x.getDate()+t); return x; }
+  function fmt(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  var f = {};
+  f[fmt(new Date(jahr,0,1))]='Neujahr';
+  f[fmt(addT(os,-2))]='Karfreitag';
+  f[fmt(os)]='Ostersonntag';
+  f[fmt(addT(os,1))]='Ostermontag';
+  f[fmt(new Date(jahr,4,1))]='Tag der Arbeit';
+  f[fmt(addT(os,39))]='Christi Himmelfahrt';
+  f[fmt(addT(os,49))]='Pfingstsonntag';
+  f[fmt(addT(os,50))]='Pfingstmontag';
+  f[fmt(addT(os,60))]='Fronleichnam';
+  f[fmt(new Date(jahr,9,3))]='Tag der Deutschen Einheit';
+  f[fmt(new Date(jahr,10,1))]='Allerheiligen';
+  f[fmt(new Date(jahr,11,25))]='1. Weihnachtstag';
+  f[fmt(new Date(jahr,11,26))]='2. Weihnachtstag';
+  return f;
+}
+
 function msSollStunden(monat, jahr) {
   let werktage = 0;
   const tage = new Date(jahr, monat, 0).getDate();
+  const ft = feiertageRLP(jahr);
   for (let t = 1; t <= tage; t++) {
     const dow = new Date(jahr, monat - 1, t).getDay();
-    if (dow >= 1 && dow <= 5) werktage++;
+    const d = jahr + '-' + pad(monat) + '-' + pad(t);
+    if (dow >= 1 && dow <= 5 && !ft[d]) werktage++;
   }
   return werktage * 8;
 }
@@ -704,6 +734,7 @@ async function ladeMeineStunden() {
     // Zeilen aufbauen (nur Mo-Fr bis heute)
     const anzTage = new Date(msJahr, msMonat, 0).getDate();
     const zeilen = [];
+    const ftMap = feiertageRLP(msJahr);
     for (let t = 1; t <= anzTage; t++) {
       const d = msJahr + '-' + pad(msMonat) + '-' + pad(t);
       if (d > heute) break;
@@ -712,9 +743,10 @@ async function ladeMeineStunden() {
       const beginn = tagesMap[d] ? tagesMap[d].beginn : null;
       const ende   = tagesMap[d] ? tagesMap[d].ende   : null;
       const netto  = nettoStunden(beginn, ende);
-      const sollH  = dow >= 1 && dow <= 5 ? 8 : 0;
-      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : (dow >= 1 && dow <= 5 ? -8 : null);
-      zeilen.push({ d, dow, beginn, ende, netto, diff });
+      const isFT = dow >= 1 && dow <= 5 && !!ftMap[d];
+      const sollH  = (dow >= 1 && dow <= 5 && !isFT) ? 8 : 0;  // Feiertag + Sa kein Soll
+      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : ((dow >= 1 && dow <= 5 && !isFT) ? -8 : null);
+      zeilen.push({ d, dow, beginn, ende, netto, diff, isFT });
     }
 
     // Zusammenfassung
@@ -745,7 +777,7 @@ async function ladeMeineStunden() {
       div.className = 'ms-tag' + (hatEintrag ? '' : ' kein-eintrag');
       div.innerHTML =
         '<div class="ms-tag-links">'
-        + '<div class="ms-tag-datum">' + wt[z.dow] + ', ' + formatDatumKurz(z.d) + '</div>'
+        + '<div class="ms-tag-datum">' + wt[z.dow] + ', ' + formatDatumKurz(z.d) + (z.isFT ? ' <span style="color:#56d48a;font-size:0.75rem">[FT]</span>' : '') + '</div>'
         + '<div class="ms-tag-zeiten">' + (z.beginn || '–') + ' → ' + (z.ende || '–') + '</div>'
         + '</div>'
         + '<div class="ms-tag-rechts">'

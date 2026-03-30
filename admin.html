@@ -1613,9 +1613,11 @@ function formatH(h) {
 function sollStunden(monat, jahr) {
   let werktage = 0;
   const tage = new Date(jahr, monat, 0).getDate();
+  const ft = feiertageRLP(jahr);
   for (let t = 1; t <= tage; t++) {
     const dow = new Date(jahr, monat - 1, t).getDay();
-    if (dow >= 1 && dow <= 5) werktage++;
+    const d = jahr + '-' + pad(monat) + '-' + pad(t);
+    if (dow >= 1 && dow <= 5 && !ft[d]) werktage++;
   }
   return werktage * 8;
 }
@@ -1888,12 +1890,13 @@ async function ladeMonatsübersicht() {
     let gesamtStunden = 0, gesamtUeber = 0, gesamtFehl = 0, gesamtSpaet = 0;
 
     const rows = state.alleMitarbeiter.map(function(ma) {
-      let tageWoche = 0, tageSa = 0;
-      let stdWoche = 0, stdSa = 0;
+      let tageWoche = 0, tageSa = 0, tageFT = 0;
+      let stdWoche = 0, stdSa = 0, stdFT = 0;
       let zuSpaet = 0;
       let fehlTage = 0;
 
       const anzTage = new Date(state.jahr, state.monat, 0).getDate();
+      const ftMap = feiertageRLP(state.jahr);
       for (let t = 1; t <= anzTage; t++) {
         const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
         const dow = new Date(state.jahr, state.monat - 1, t).getDay();
@@ -1901,6 +1904,7 @@ async function ladeMonatsübersicht() {
         const isSa = dow === 6;
         const isSo = dow === 0;
         const isWerktag = dow >= 1 && dow <= 5;
+        const isFeiertag = isWerktag && !!ftMap[d];
 
         // Zukunft: nicht zählen
         if (d > heuteDatum()) continue;
@@ -1911,7 +1915,11 @@ async function ladeMonatsübersicht() {
         if (eintrag && eintrag.beginn) {
           const effBeginn = (eintrag.beginn < '07:00' && !eintrag.fruehAkzeptiert) ? '07:00' : eintrag.beginn;
           const netto = nettoStunden(effBeginn, eintrag.ende);
-          if (isSa) {
+          if (isFeiertag) {
+            // Feiertag: wie Samstag – alles Überstunden
+            tageFT++;
+            stdFT += netto || 0;
+          } else if (isSa) {
             tageSa++;
             stdSa += netto || 0;
           } else if (isWerktag) {
@@ -1919,13 +1927,14 @@ async function ladeMonatsübersicht() {
             stdWoche += netto || 0;
             if (isSpaet(eintrag.beginn)) zuSpaet++;
           }
-        } else if (isWerktag) {
+        } else if (isWerktag && !isFeiertag) {
+          // Feiertag ohne Stempel ist KEIN Fehltag
           fehlTage++;
         }
       }
 
-      const gesamt = stdWoche + stdSa;
-      const ueber  = (stdWoche - (tageWoche * 8)) + stdSa;
+      const gesamt = stdWoche + stdSa + stdFT;
+      const ueber  = (stdWoche - (tageWoche * 8)) + stdSa + stdFT;
 
       gesamtStunden += gesamt;
       if (ueber > 0) gesamtUeber += ueber;
@@ -2073,15 +2082,19 @@ async function ladeDetail() {
     rows.sort(function(a, b) { return b.datum.localeCompare(a.datum) || a.ma.localeCompare(b.ma); });
 
     tbody.innerHTML = '';
+    const ftMapDetail = feiertageRLP(state.jahr);
     rows.forEach(function(r) {
       const isSa = r.dow === 6;
+      const isFT = r.dow >= 1 && r.dow <= 5 && !!ftMapDetail[r.datum];
       const spaet = isSpaet(r.beginn);
-      const ueber = r.netto !== null && (isSa ? r.netto > 0 : r.netto > 8);
-      const trKlasse = r.unvoll ? 'zeile-warnung' : (isSa ? 'zeile-samstag' : '');
+      const ueber = r.netto !== null && ((isSa || isFT) ? r.netto > 0 : r.netto > 8);
+      const trKlasse = r.unvoll ? 'zeile-warnung' : (isSa ? 'zeile-samstag' : (isFT ? 'zeile-samstag' : ''));
 
       let badge;
-      if (!r.beginn)   badge = '<span class="badge badge-fehlt">– Kein Eintrag</span>';
+      if (!r.beginn && isFT) badge = '<span class="badge" style="background:rgba(26,94,58,0.3);color:#56d48a">Feiertag</span>';
+      else if (!r.beginn)   badge = '<span class="badge badge-fehlt">– Kein Eintrag</span>';
       else if (r.unvoll) badge = '<span class="badge badge-fehlt">&#9888; Kein Ende</span>';
+      else if (isFT && ueber) badge = '<span class="badge badge-ueber">Feiertag + Überstd.</span>';
       else if (spaet && ueber) badge = '<span class="badge badge-spaet">&#128308; Zu spät + Überstd.</span>';
       else if (spaet)  badge = '<span class="badge badge-spaet">&#128308; Zu spät</span>';
       else if (ueber)  badge = '<span class="badge badge-ueber">&#128992; Überstunden</span>';
@@ -2337,8 +2350,9 @@ async function oeffneMAModal(name) {
     const tagesMap = baueTagesMap(stamps);
 
     // Stats berechnen
-    let tageWoche = 0, tageSa = 0, gesamtH = 0, ueberH = 0, zuSpaet = 0;
+    let tageWoche = 0, tageSa = 0, tageFTModal = 0, gesamtH = 0, ueberH = 0, zuSpaet = 0;
     const anzTage = new Date(state.jahr, state.monat, 0).getDate();
+    const ftMapModal = feiertageRLP(state.jahr);
 
     for (let t = 1; t <= anzTage; t++) {
       const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
@@ -2347,7 +2361,13 @@ async function oeffneMAModal(name) {
       const eintrag = tagesMap[d] && tagesMap[d][name];
       if (!eintrag || !eintrag.beginn) continue;
       const netto = nettoStunden(eintrag.beginn, eintrag.ende);
-      if (dow === 6) {
+      const isFT = dow >= 1 && dow <= 5 && !!ftMapModal[d];
+      if (isFT) {
+        // Feiertag: wie Samstag – alles Überstunden
+        tageFTModal++;
+        gesamtH += netto || 0;
+        if (netto !== null && netto > 0) ueberH += netto;
+      } else if (dow === 6) {
         tageSa++;
         gesamtH += netto || 0;
         if (netto !== null && netto > 0) ueberH += netto;
@@ -2407,9 +2427,10 @@ async function oeffneMAModal(name) {
       const beginn = eintrag ? eintrag.beginn : null;
       const ende   = eintrag ? eintrag.ende   : null;
       const netto  = nettoStunden(beginn, ende);
-      const sollH  = (dow >= 1 && dow <= 5) ? 8 : 0;  // Sa kein Soll
-      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : (dow >= 1 && dow <= 5 ? -8 : null);
-      zeilen.push({ d, dow, beginn, ende, netto, diff, isSa: dow === 6 });
+      const isFTZeile = dow >= 1 && dow <= 5 && !!ftMapModal[d];
+      const sollH  = (dow >= 1 && dow <= 5 && !isFTZeile) ? 8 : 0;  // Feiertag + Sa kein Soll
+      const diff   = netto !== null ? +(netto - sollH).toFixed(2) : ((dow >= 1 && dow <= 5 && !isFTZeile) ? -8 : null);
+      zeilen.push({ d, dow, beginn, ende, netto, diff, isSa: dow === 6, isFT: isFTZeile });
     }
     zeilen.reverse();
 
@@ -2419,8 +2440,10 @@ async function oeffneMAModal(name) {
       const minus  = z.diff !== null && z.diff < 0;
       const unvoll = z.beginn && !z.ende;
       let badge;
-      if (!z.beginn)   badge = '<span class="badge" style="background:rgba(100,100,100,0.2);color:#888">Kein Eintrag</span>';
+      if (!z.beginn && z.isFT) badge = '<span class="badge" style="background:rgba(26,94,58,0.3);color:#56d48a">Feiertag</span>';
+      else if (!z.beginn)   badge = '<span class="badge" style="background:rgba(100,100,100,0.2);color:#888">Kein Eintrag</span>';
       else if (unvoll) badge = '<span class="badge badge-fehlt">&#9888; Kein Ende</span>';
+      else if (z.isFT && ueber) badge = '<span class="badge badge-ueber">Feiertag + Überstd.</span>';
       else if (spaet)  badge = '<span class="badge badge-spaet">&#128308; Zu spät</span>';
       else if (ueber)  badge = '<span class="badge badge-ueber">&#128992; Überstd.</span>';
       else             badge = '<span class="badge badge-normal">&#10003;</span>';
@@ -2428,7 +2451,7 @@ async function oeffneMAModal(name) {
       const diffKl  = z.diff > 0 ? 'td-orange' : (z.diff < 0 ? 'td-rot' : '');
       const tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + z.d.split('-').reverse().join('.') + (z.isSa ? ' <span style="font-size:0.75rem;color:var(--blue)">[Sa]</span>' : '') + '</td>'
+        '<td>' + z.d.split('-').reverse().join('.') + (z.isSa ? ' <span style="font-size:0.75rem;color:var(--blue)">[Sa]</span>' : '') + (z.isFT ? ' <span style="font-size:0.75rem;color:#56d48a">[FT]</span>' : '') + '</td>'
         + '<td>' + tagName(z.dow) + '</td>'
         + '<td class="' + (spaet ? 'td-rot' : '') + '">' + (z.beginn || '–') + '</td>'
         + '<td>' + (z.ende || '–') + '</td>'
@@ -2534,11 +2557,13 @@ function renderKalender(name, tagesMap) {
     }
   });
 
+  const ftMapKal = feiertageRLP(state.jahr);
   for (let t = 1; t <= anzTage; t++) {
     const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
     const dow = new Date(state.jahr, state.monat - 1, t).getDay();
     const isSa = dow === 6;
     const isSo = dow === 0;
+    const isFT = dow >= 1 && dow <= 5 && !!ftMapKal[d];
     const zukunft = d > heuteDatum();
     const eintrag = tagesMap[d] && tagesMap[d][name];
     const urlaubTyp = urlaubMap[d];
@@ -2552,6 +2577,11 @@ function renderKalender(name, tagesMap) {
 
     if (isSo) {
       klasse = 'kal-wochenende';
+    } else if (isFT && !eintrag) {
+      // Feiertag ohne Arbeit
+      klasse = 'kal-leer';
+      stdText = 'FT';
+      tooltip = ftMapKal[d];
     } else if (urlaubTyp && !eintrag) {
       // Urlaub oder Krank eintragen – hat Vorrang wenn kein Stempel
       if (urlaubTyp === 'urlaub') {
@@ -2573,8 +2603,9 @@ function renderKalender(name, tagesMap) {
       const netto = nettoStunden(eintrag.beginn, eintrag.ende);
       stdText = netto !== null ? formatH(netto) : '▶';
       const spaet = isSpaet(eintrag.beginn);
-      const ueber = netto !== null && (isSa ? netto > 0 : netto > 8);
-      if (isSa && ueber) klasse = 'kal-ueber';
+      const ueber = netto !== null && ((isSa || isFT) ? netto > 0 : netto > 8);
+      if (isFT && ueber) klasse = 'kal-ueber';
+      else if (isSa && ueber) klasse = 'kal-ueber';
       else if (isSa)   klasse = 'kal-samstag';
       else if (spaet)  klasse = 'kal-spaet';
       else if (ueber)  klasse = 'kal-ueber';
@@ -2582,14 +2613,14 @@ function renderKalender(name, tagesMap) {
 
       tooltip = eintrag.beginn + ' – ' + (eintrag.ende || '?');
       if (netto !== null) tooltip += ' | ' + formatH(netto);
-    } else if (!isSa) {
+    } else if (!isSa && !isFT) {
       klasse = 'kal-fehlt';
       stdText = '–';
     }
 
     el.classList.add(klasse);
     el.innerHTML =
-      '<div class="tag-num">' + t + '</div>'
+      '<div class="tag-num">' + t + (isFT ? '<span style="font-size:0.55rem;color:#56d48a;margin-left:2px">FT</span>' : '') + '</div>'
       + (stdText ? '<div class="tag-std">' + stdText + '</div>' : '')
       + (tooltip ? '<div class="tooltip">' + tooltip + '</div>' : '');
 
@@ -3087,14 +3118,16 @@ async function ladeJahresübersicht() {
       });
 
       let gesamtArbeitstage = 0, gesamtStd = 0, gesamtSoll = 0, gesamtUeber = 0;
-      let gesamtUrlaub = 0, gesamtKrank = 0, gesamtSaEinsatz = 0, gesamtSchulferien = 0;
+      let gesamtUrlaub = 0, gesamtKrank = 0, gesamtSaEinsatz = 0, gesamtSchulferien = 0, gesamtFTEinsatz = 0;
 
       let tabelleRows = '';
+      const ftMapJahr = feiertageRLP(state.jahresJahr);
 
       for (let m = 1; m <= 12; m++) {
         const anzTage = new Date(state.jahresJahr, m, 0).getDate();
         let arbeitstage = 0, stdGearbeitet = 0, soll = 0;
-        let urlaubTage = 0, krankTage = 0, saTage = 0, schulferienTage = 0;
+        let urlaubTage = 0, krankTage = 0, saTage = 0, schulferienTage = 0, ftTage = 0;
+        let stdFT = 0;
         const urlaubDaten = [], krankDaten = [], schulferienNamen = new Set();
 
         for (let t = 1; t <= anzTage; t++) {
@@ -3102,6 +3135,7 @@ async function ladeJahresübersicht() {
           const dow = new Date(state.jahresJahr, m - 1, t).getDay();
           const isWerktag = dow >= 1 && dow <= 5;
           const isSa = dow === 6;
+          const isFeiertag = isWerktag && !!ftMapJahr[d];
           const istZukunft = d > heuteDatum();
 
           const stamp = stampMap[d];
@@ -3114,7 +3148,7 @@ async function ladeJahresübersicht() {
           }
 
           // Urlaub/Krank auch für Zukunft zählen (geplanter Urlaub soll sichtbar sein)
-          if (isWerktag && urlaubTyp) {
+          if (isWerktag && !isFeiertag && urlaubTyp) {
             if (urlaubTyp === 'urlaub') { urlaubTage++; urlaubDaten.push(d); }
             else if (urlaubTyp === 'krank') { krankTage++; krankDaten.push(d); }
             else if (urlaubTyp === 'sonderurlaub') { urlaubTage++; urlaubDaten.push(d + '(S)'); }
@@ -3123,7 +3157,13 @@ async function ladeJahresübersicht() {
           // Stunden und Arbeitstage nur für vergangene Tage
           if (istZukunft) continue;
 
-          if (isWerktag) {
+          if (isFeiertag && stamp && stamp.beginn) {
+            // Feiertag mit Arbeit: wie Samstag – alles Überstunden
+            ftTage++;
+            const netto = nettoStunden(stamp.beginn, stamp.ende);
+            stdFT += netto || 0;
+            stdGearbeitet += netto || 0;
+          } else if (isWerktag && !isFeiertag) {
             soll += 8;
             if (stamp && stamp.beginn) {
               arbeitstage++;
@@ -3146,6 +3186,7 @@ async function ladeJahresübersicht() {
         gesamtKrank       += krankTage;
         gesamtSaEinsatz   += saTage;
         gesamtSchulferien += schulferienTage;
+        gesamtFTEinsatz   += ftTage;
 
         const ueberKlasse = ueber > 0 ? 'td-orange' : (ueber < 0 ? 'td-rot' : '');
         const ueberText   = (ueber > 0 ? '+' : '') + formatH(ueber);
@@ -3160,6 +3201,7 @@ async function ladeJahresübersicht() {
           + '<td>' + (urlaubTage > 0 ? '<span style="color:#ffd700;font-weight:700">' + urlaubTage + ' Tag' + (urlaubTage > 1 ? 'e' : '') + '</span><br><span style="font-size:0.75rem;color:#a0946a">' + urlaubDaten.map(function(d){ return d.substring(8,10)+'.'+d.substring(5,7)+'.'; }).join(', ') + '</span>' : '–') + '</td>'
           + '<td>' + (krankTage > 0 ? '<span style="color:#c77dff;font-weight:700">' + krankTage + ' Tag' + (krankTage > 1 ? 'e' : '') + '</span><br><span style="font-size:0.75rem;color:#9a80b5">' + krankDaten.map(function(d){ return d.substring(8,10)+'.'+d.substring(5,7)+'.'; }).join(', ') + '</span>' : '–') + '</td>'
           + '<td>' + (saTage > 0 ? '<span class="td-blau">' + saTage + '</span>' : '–') + '</td>'
+          + '<td>' + (ftTage > 0 ? '<span style="color:#56d48a;font-weight:700">' + ftTage + '</span>' : '–') + '</td>'
           + '<td>' + (schulferienTage > 0 ? '<span style="color:#4ecdc4;font-weight:700">' + schulferienTage + ' Tage</span><br><span style="font-size:0.72rem;color:#3aada5">' + Array.from(schulferienNamen).join(', ') + '</span>' : '–') + '</td>'
           + '</tr>';
       }
@@ -3178,6 +3220,7 @@ async function ladeJahresübersicht() {
         + '<td><strong style="color:#ffd700">' + (gesamtUrlaub || '–') + '</strong></td>'
         + '<td><strong style="color:#c77dff">' + (gesamtKrank || '–') + '</strong></td>'
         + '<td><strong class="td-blau">' + (gesamtSaEinsatz || '–') + '</strong></td>'
+        + '<td><strong style="color:#56d48a">' + (gesamtFTEinsatz || '–') + '</strong></td>'
         + '<td><strong style="color:#4ecdc4">' + gesamtSchulferien + ' Tage</strong></td>'
         + '</tr>';
 
@@ -3194,7 +3237,7 @@ async function ladeJahresübersicht() {
         + '<table>'
         + '<thead><tr>'
         + '<th>Monat</th><th>Arbeitstage</th><th>Std. gearbeitet</th><th>Std. Soll</th>'
-        + '<th>Über-/Unterst.</th><th>Urlaub</th><th>Krank</th><th>Sa-Tage</th><th style="color:#4ecdc4">Schulferien RLP</th>'
+        + '<th>Über-/Unterst.</th><th>Urlaub</th><th>Krank</th><th>Sa-Tage</th><th style="color:#56d48a">FT-Tage</th><th style="color:#4ecdc4">Schulferien RLP</th>'
         + '</tr></thead>'
         + '<tbody>' + tabelleRows + '</tbody>'
         + '</table>'
