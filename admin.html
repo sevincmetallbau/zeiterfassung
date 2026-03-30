@@ -2951,11 +2951,15 @@ function oeffneUKModal(datum) {
   var tagNamen = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
   document.getElementById('uk-modal-datum').textContent = tagNamen[dow] + ', ' + datumDE;
 
-  // Feiertag-Info
+  // Feiertag- & Ferien-Info
   var ftInfo = document.getElementById('uk-modal-feiertag-info');
-  if (feiertage[datum]) {
+  var infoTeile = [];
+  if (feiertage[datum]) infoTeile.push('🎉 Feiertag RLP: ' + feiertage[datum]);
+  var sf = istSchulferientag(datum, ukState.jahr);
+  if (sf) infoTeile.push('📚 Schulferien RLP: ' + sf.name);
+  if (infoTeile.length > 0) {
     ftInfo.style.display = 'block';
-    ftInfo.textContent = '🎉 Feiertag RLP: ' + feiertage[datum];
+    ftInfo.innerHTML = infoTeile.join('<br>');
   } else {
     ftInfo.style.display = 'none';
   }
@@ -3018,6 +3022,8 @@ async function ukNeuLaden() {
   await ladeUrlaubDaten();
   oeffneUKModal(ukState.aktivDatum);
   renderUKJahreskalender();
+  // Jahreskalender auch refreshen, wenn von dort geöffnet
+  if (jkModalAktiv) ladeJahreskalender();
 }
 
 // ── URLAUBSANTRÄGE (GENEHMIGEN/ABLEHNEN) ──
@@ -3345,6 +3351,10 @@ async function ladeJahreskalender() {
       .lte('datum', jkJahr + '-12-31');
     const alleUrlaub = urlaubData || [];
 
+    // ukState synchron halten, damit das Modal funktioniert
+    ukState.jahr = jkJahr;
+    ukState.urlaubData = alleUrlaub;
+
     // Urlaub-Map: datum → [{mitarbeiter, typ}]
     const urlaubMap = {};
     alleUrlaub.forEach(function(u) {
@@ -3416,7 +3426,7 @@ async function ladeJahreskalender() {
           dotsHtml += '</div>';
         }
 
-        html += '<div class="' + klassen + '">'
+        html += '<div class="' + klassen + '" onclick="oeffneJKModal(\'' + d + '\')" style="cursor:pointer">'
           + '<div class="jk-nr">' + t + '</div>'
           + dotsHtml
           + tooltipHtml
@@ -3433,6 +3443,16 @@ async function ladeJahreskalender() {
     container.innerHTML = '<div class="lade-hinweis" style="color:var(--accent)">Fehler: ' + err.message + '</div>';
   }
 }
+
+// Öffnet das Urlaub/Krank-Modal vom Jahreskalender aus
+function oeffneJKModal(datum) {
+  // ukState ist schon synchron (wird in ladeJahreskalender gesetzt)
+  // Ferien-Info im Modal anzeigen
+  oeffneUKModal(datum);
+  // Nach Eintragen/Löschen soll auch der Jahreskalender refreshen
+  jkModalAktiv = true;
+}
+let jkModalAktiv = false;
 
 // ── TABS ──
 
@@ -3459,6 +3479,7 @@ function zeigeTab(tab, btn) {
 function schliesseModal(id) {
   document.getElementById(id).classList.remove('offen');
   if (id === 'ma-detail-modal') state.aktuellerModalMA = null;
+  if (id === 'uk-tag-modal') jkModalAktiv = false;
 }
 
 function druckeMonat() {
