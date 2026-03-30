@@ -941,6 +941,45 @@
     .uk-ma-dot-krank    { background: #c77dff; }
     .uk-ma-dot-sonder   { background: #74b9ff; }
 
+    /* ── Jahreskalender Tab ── */
+    .jk-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .jk-nav { display: flex; align-items: center; gap: 12px; }
+    .jk-nav button { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 18px; font-size: 1.3rem; cursor: pointer; }
+    .jk-nav button:hover { background: var(--card2); }
+    .jk-jahr-label { font-size: 1.5rem; font-weight: 700; color: var(--text); min-width: 60px; text-align: center; }
+    .jk-legende { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.82rem; color: var(--text2); }
+    .jk-leg { display: flex; align-items: center; gap: 5px; }
+    .jk-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .jk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .jk-monat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .jk-monat-titel { background: var(--card2); padding: 8px 14px; font-weight: 600; font-size: 0.92rem; }
+    .jk-tage { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 8px; }
+    .jk-kopf { font-size: 0.68rem; color: var(--text2); text-align: center; padding: 2px 0 4px; }
+    .jk-tag { border-radius: 6px; padding: 3px 2px; min-height: 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; position: relative; cursor: default; transition: background 0.1s; }
+    .jk-tag:hover { background: var(--card2) !important; }
+    .jk-tag.jk-leer { pointer-events: none; }
+    .jk-tag.jk-so { opacity: 0.35; }
+    .jk-tag.jk-ft { background: rgba(231,76,60,0.2) !important; }
+    .jk-tag.jk-ft .jk-nr { color: #e74c3c; font-weight: 700; }
+    .jk-tag.jk-ferien { background: rgba(78,205,196,0.15) !important; }
+    .jk-tag.jk-ferien .jk-nr { color: #4ecdc4; }
+    .jk-tag.jk-ft.jk-ferien { background: rgba(231,76,60,0.2) !important; }
+    .jk-nr { font-size: 0.75rem; line-height: 1; }
+    .jk-tag.jk-heute { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 6px; }
+    .jk-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; }
+    .jk-mdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .jk-tooltip {
+      display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+      font-size: 0.78rem; color: var(--text); white-space: nowrap; z-index: 100;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3); pointer-events: none;
+    }
+    .jk-tag:hover .jk-tooltip { display: block; }
+    .jk-tooltip::after {
+      content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      border: 6px solid transparent; border-top-color: var(--border);
+    }
+
     .uk-eintraege-liste { font-size: 0.88rem; }
     .uk-eintrag-zeile {
       display: flex; align-items: center; justify-content: space-between;
@@ -1075,7 +1114,7 @@
       body { background: white; color: black; font-size: 12px; }
       /* Standard-Druck: Monatsübersicht */
       #login-overlay, #header, .qr-sektion, .heute-leiste, .karten-reihe, .tabs,
-      #tab-detail, #tab-mitarbeiter, #tab-jahres, #tab-urlaubkrank,
+      #tab-detail, #tab-mitarbeiter, #tab-jahres, #tab-urlaubkrank, #tab-kalender,
       button, .abmelden-btn { display: none !important; }
       #dashboard { padding: 0; }
       #tab-monat { display: block !important; }
@@ -1173,6 +1212,7 @@
     <button class="tab-btn" onclick="zeigeTab('jahres', this)">Jahresübersicht</button>
     <button class="tab-btn" onclick="zeigeTab('kundenzeiten', this)">Kundenzeiten</button>
     <button class="tab-btn" onclick="zeigeTab('urlaubkrank', this)">Urlaub / Krank</button>
+    <button class="tab-btn" onclick="zeigeTab('kalender', this)">Jahreskalender</button>
   </div>
 
   <!-- Druck-Kopfzeile (nur beim Drucken sichtbar) -->
@@ -1318,6 +1358,25 @@
       </div>
     </div>
     <div id="uk-jahreskalender"></div>
+  </div>
+
+  <!-- Tab: Jahreskalender -->
+  <div class="tab-inhalt" id="tab-kalender">
+    <div class="jk-header">
+      <div class="jk-nav">
+        <button onclick="jkJahrAendern(-1)">&#8592;</button>
+        <span id="jk-jahr-label" class="jk-jahr-label">–</span>
+        <button onclick="jkJahrAendern(+1)">&#8594;</button>
+      </div>
+      <div class="jk-legende">
+        <span class="jk-leg"><span class="jk-dot" style="background:#e74c3c"></span> Feiertag</span>
+        <span class="jk-leg"><span class="jk-dot" style="background:#4ecdc4"></span> Schulferien</span>
+        <span class="jk-leg"><span class="jk-dot" style="background:#ffd700"></span> Urlaub</span>
+        <span class="jk-leg"><span class="jk-dot" style="background:#c77dff"></span> Krank</span>
+        <span class="jk-leg"><span class="jk-dot" style="background:#74b9ff"></span> Sonderurlaub</span>
+      </div>
+    </div>
+    <div id="jk-inhalt"></div>
   </div>
 
 </div><!-- /dashboard -->
@@ -3263,6 +3322,118 @@ async function ladeJahresübersicht() {
   }
 }
 
+// ── JAHRESKALENDER ──
+
+let jkJahr = new Date().getFullYear();
+
+function jkJahrAendern(delta) {
+  jkJahr += delta;
+  document.getElementById('jk-jahr-label').textContent = jkJahr;
+  ladeJahreskalender();
+}
+
+async function ladeJahreskalender() {
+  const container = document.getElementById('jk-inhalt');
+  container.innerHTML = '<div class="lade-hinweis"><span class="spinner-inline"></span> Lade Kalender…</div>';
+  document.getElementById('jk-jahr-label').textContent = jkJahr;
+
+  try {
+    // Urlaub/Krank laden
+    const { data: urlaubData } = await sb.from('urlaub')
+      .select('*')
+      .gte('datum', jkJahr + '-01-01')
+      .lte('datum', jkJahr + '-12-31');
+    const alleUrlaub = urlaubData || [];
+
+    // Urlaub-Map: datum → [{mitarbeiter, typ}]
+    const urlaubMap = {};
+    alleUrlaub.forEach(function(u) {
+      if (!urlaubMap[u.datum]) urlaubMap[u.datum] = [];
+      urlaubMap[u.datum].push({ ma: u.mitarbeiter, typ: u.typ });
+    });
+
+    const ft = feiertageRLP(jkJahr);
+    const heute = heuteDatum();
+    const monatNamen = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    const tageKopf = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+
+    let html = '<div class="jk-grid">';
+
+    for (let m = 1; m <= 12; m++) {
+      html += '<div class="jk-monat">';
+      html += '<div class="jk-monat-titel">' + monatNamen[m - 1] + '</div>';
+      html += '<div class="jk-tage">';
+
+      // Kopfzeile
+      tageKopf.forEach(function(k) { html += '<div class="jk-kopf">' + k + '</div>'; });
+
+      // Leere Felder davor
+      const ersterTag = new Date(jkJahr, m - 1, 1).getDay();
+      const startOffset = ersterTag === 0 ? 6 : ersterTag - 1;
+      for (let i = 0; i < startOffset; i++) {
+        html += '<div class="jk-tag jk-leer"></div>';
+      }
+
+      const anzTage = new Date(jkJahr, m, 0).getDate();
+      for (let t = 1; t <= anzTage; t++) {
+        const d = jkJahr + '-' + pad(m) + '-' + pad(t);
+        const dow = new Date(jkJahr, m - 1, t).getDay();
+        const isSo = dow === 0;
+        const isFT = !!ft[d];
+        const sf = istSchulferientag(d, jkJahr);
+        const isHeute = d === heute;
+        const eintraege = urlaubMap[d] || [];
+
+        let klassen = 'jk-tag';
+        if (isSo) klassen += ' jk-so';
+        if (isFT) klassen += ' jk-ft';
+        if (sf && !isFT) klassen += ' jk-ferien';
+        if (isHeute) klassen += ' jk-heute';
+
+        // Tooltip bauen
+        let tipParts = [];
+        if (isFT) tipParts.push('<span style="color:#e74c3c;font-weight:600">' + ft[d] + '</span>');
+        if (sf) tipParts.push('<span style="color:#4ecdc4">' + sf.name + '</span>');
+        eintraege.forEach(function(e) {
+          const farbe = e.typ === 'urlaub' ? '#ffd700' : (e.typ === 'krank' ? '#c77dff' : '#74b9ff');
+          const label = e.typ === 'urlaub' ? 'Urlaub' : (e.typ === 'krank' ? 'Krank' : 'Sonderurlaub');
+          tipParts.push('<span style="color:' + farbe + '">' + e.ma + ' – ' + label + '</span>');
+        });
+
+        let tooltipHtml = '';
+        if (tipParts.length > 0) {
+          tooltipHtml = '<div class="jk-tooltip">' + tipParts.join('<br>') + '</div>';
+        }
+
+        // Dots für Urlaub/Krank
+        let dotsHtml = '';
+        if (eintraege.length > 0) {
+          dotsHtml = '<div class="jk-dots">';
+          eintraege.forEach(function(e) {
+            const farbe = e.typ === 'urlaub' ? '#ffd700' : (e.typ === 'krank' ? '#c77dff' : '#74b9ff');
+            dotsHtml += '<div class="jk-mdot" style="background:' + farbe + '"></div>';
+          });
+          dotsHtml += '</div>';
+        }
+
+        html += '<div class="' + klassen + '">'
+          + '<div class="jk-nr">' + t + '</div>'
+          + dotsHtml
+          + tooltipHtml
+          + '</div>';
+      }
+
+      html += '</div></div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+
+  } catch (err) {
+    container.innerHTML = '<div class="lade-hinweis" style="color:var(--accent)">Fehler: ' + err.message + '</div>';
+  }
+}
+
 // ── TABS ──
 
 function zeigeTab(tab, btn) {
@@ -3280,6 +3451,7 @@ function zeigeTab(tab, btn) {
   }
   if (tab === 'kundenzeiten') initKundenzeiten();
   if (tab === 'urlaubkrank') ladeUKTab();
+  if (tab === 'kalender') ladeJahreskalender();
 }
 
 // ── MODAL ──
