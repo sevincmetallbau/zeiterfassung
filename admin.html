@@ -2607,6 +2607,7 @@ async function oeffneMAModal(name) {
     const totalNetto = zeilen.reduce(function(s,z){ return s + (z.netto || 0); }, 0);
     const arbeitstage = zeilen.filter(function(z){ return !z.isSa; }).length;
     const gearbeitetTage = zeilen.filter(function(z){ return z.beginn; }).length;
+    const samstageGearbeitet = zeilen.filter(function(z){ return z.isSa && z.beginn; }).length;
     const diffKl = totalDiff > 0 ? 'zusammen-diff-pos' : (totalDiff < 0 ? 'zusammen-diff-neg' : 'zusammen-diff-null');
     const monate = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
     document.getElementById('modal-zusammen-inhalt').innerHTML =
@@ -2616,6 +2617,7 @@ async function oeffneMAModal(name) {
       + '<div class="zusammen-karte"><div class="label">Gesamtstunden</div><div class="wert">' + formatH(totalNetto) + '</div></div>'
       + '<div class="zusammen-karte"><div class="label">Überstunden gesamt</div><div class="wert td-orange">+' + formatH(totalUeber) + '</div></div>'
       + '<div class="zusammen-karte"><div class="label">Minusstunden gesamt</div><div class="wert td-rot">' + formatH(totalMinus) + '</div></div>'
+      + '<div class="zusammen-karte"><div class="label">Samstage gearbeitet</div><div class="wert" style="color:var(--blue)">' + samstageGearbeitet + '</div></div>'
       + '</div>'
       + '<div class="zusammen-karte"><div class="label">Differenz zum Ende des Monats</div>'
       + '<div class="wert ' + diffKl + '">' + (totalDiff > 0 ? '+' : '') + formatH(totalDiff) + '</div>'
