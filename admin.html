@@ -1717,6 +1717,12 @@ function isSpaet(beginn) {
   return beginn > '07:00';
 }
 
+function fruehMinuten(beginn) {
+  if (!beginn || beginn >= '07:00') return 0;
+  const [bh, bm] = beginn.split(':').map(Number);
+  return (7 * 60 - (bh * 60 + bm)) / 60;
+}
+
 // ── AUTH ──
 
 let initDone = false;
@@ -2020,6 +2026,7 @@ async function ladeMonatsübersicht() {
             tageWoche++;
             stdWoche += netto || 0;
             ueberWoche += ueberNach1610(eintrag.ende);
+            if (eintrag.fruehAkzeptiert) ueberWoche += fruehMinuten(eintrag.beginn);
             if (isSpaet(eintrag.beginn)) zuSpaet++;
           }
         } else if (isWerktag && !isFeiertag) {
@@ -2470,6 +2477,7 @@ async function oeffneMAModal(name) {
         tageWoche++;
         gesamtH += netto || 0;
         ueberH += ueberNach1610(eintrag.ende);
+        if (eintrag.fruehAkzeptiert) ueberH += fruehMinuten(eintrag.beginn);
         if (isSpaet(eintrag.beginn)) zuSpaet++;
       }
     }
@@ -2521,6 +2529,7 @@ async function oeffneMAModal(name) {
       const eintrag = tagesMap[d] && tagesMap[d][name];
       const beginn = eintrag ? eintrag.beginn : null;
       const ende   = eintrag ? eintrag.ende   : null;
+      const akzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
       const netto  = nettoStunden(beginn, ende);
       const isFTZeile = dow >= 1 && dow <= 5 && !!ftMapModal[d];
       const isWerktag1610 = dow >= 1 && dow <= 5 && !isFTZeile;
@@ -2530,7 +2539,8 @@ async function oeffneMAModal(name) {
       } else if (isWerktag1610) {
         // Werktag: Überstunden erst ab 16:10, Minus wenn < 8h
         const ue1610 = ueberNach1610(ende);
-        diff = netto < 8 ? +(netto - 8).toFixed(2) : +(ue1610).toFixed(2);
+        const fruehBonus = akzeptiert ? fruehMinuten(beginn) : 0;
+        diff = netto < 8 ? +(netto - 8).toFixed(2) : +(ue1610 + fruehBonus).toFixed(2);
       } else {
         // Sa/Feiertag: alles Überstunden
         diff = +netto.toFixed(2);
@@ -3283,6 +3293,7 @@ async function ladeJahresübersicht() {
               const netto = nettoStunden(stamp.beginn, stamp.ende);
               stdGearbeitet += netto || 0;
               ueberWerktage += ueberNach1610(stamp.ende);
+              if (stamp.fruehAkzeptiert) ueberWerktage += fruehMinuten(stamp.beginn);
             }
           } else if (isSa && stamp && stamp.beginn) {
             saTage++;

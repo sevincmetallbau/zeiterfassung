@@ -503,6 +503,12 @@ function ueberNach1610(ende) {
   return endeMin > grenze ? (endeMin - grenze) / 60 : 0;
 }
 
+function fruehMinuten(beginn) {
+  if (!beginn || beginn >= '07:00') return 0;
+  const [bh, bm] = beginn.split(':').map(Number);
+  return (7 * 60 - (bh * 60 + bm)) / 60;
+}
+
 function nettoStunden(beginn, ende) {
   if (!beginn || !ende) return null;
   const [bh, bm] = beginn.split(':').map(Number);
@@ -724,7 +730,7 @@ async function ladeMeineStunden() {
 
   try {
     const { data, error } = await sb.from('stamps')
-      .select('typ, datum, zeit')
+      .select('typ, datum, zeit, frueh_akzeptiert')
       .eq('mitarbeiter', aktiverMA.name)
       .gte('datum', von)
       .lte('datum', bis)
@@ -734,9 +740,10 @@ async function ladeMeineStunden() {
     // Tages-Map aufbauen
     const tagesMap = {};
     (data || []).forEach(function(s) {
-      if (!tagesMap[s.datum]) tagesMap[s.datum] = {};
+      if (!tagesMap[s.datum]) tagesMap[s.datum] = { fruehAkzeptiert: false };
       if (s.typ === 'beginn' && !tagesMap[s.datum].beginn) tagesMap[s.datum].beginn = s.zeit.slice(0,5);
       if (s.typ === 'ende') tagesMap[s.datum].ende = s.zeit.slice(0,5);
+      if (s.frueh_akzeptiert) tagesMap[s.datum].fruehAkzeptiert = true;
     });
 
     // Zeilen aufbauen (nur Mo-Fr bis heute)
@@ -750,6 +757,7 @@ async function ladeMeineStunden() {
       if (dow === 0) continue; // Sonntag überspringen
       const beginn = tagesMap[d] ? tagesMap[d].beginn : null;
       const ende   = tagesMap[d] ? tagesMap[d].ende   : null;
+      const akzeptiert = tagesMap[d] ? tagesMap[d].fruehAkzeptiert : false;
       const netto  = nettoStunden(beginn, ende);
       const isFT = dow >= 1 && dow <= 5 && !!ftMap[d];
       const isWerktag1610 = dow >= 1 && dow <= 5 && !isFT;
@@ -758,7 +766,8 @@ async function ladeMeineStunden() {
         diff = isWerktag1610 ? -8 : null;
       } else if (isWerktag1610) {
         const ue1610 = ueberNach1610(ende);
-        diff = netto < 8 ? +(netto - 8).toFixed(2) : +(ue1610).toFixed(2);
+        const fruehBonus = akzeptiert ? fruehMinuten(beginn) : 0;
+        diff = netto < 8 ? +(netto - 8).toFixed(2) : +(ue1610 + fruehBonus).toFixed(2);
       } else {
         diff = +netto.toFixed(2);
       }
