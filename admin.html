@@ -1792,18 +1792,7 @@ function monatAendern(delta) {
 }
 
 async function doRefresh() {
-  var btn = document.getElementById('refresh-btn');
-  btn.classList.add('spinning');
-  btn.disabled = true;
-  try {
-    invalidateCache();
-    await ladeAlles();
-    const kzTab = document.getElementById('tab-kundenzeiten');
-    if (kzTab && kzTab.classList.contains('aktiv')) await ladeKundenzeiten();
-  } finally {
-    btn.classList.remove('spinning');
-    btn.disabled = false;
-  }
+  location.reload(true);
 }
 
 async function ladeAlles() {
