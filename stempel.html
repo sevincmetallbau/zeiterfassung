@@ -770,11 +770,15 @@ async function ladeMeineStunden() {
     const gesamtNet = zeilen.reduce(function(s,z){ return s + (z.netto || 0); }, 0);
     const totalDiff = +zeilen.reduce(function(s,z){ return s + (z.diff || 0); }, 0).toFixed(2);
 
+    const totalUeber = zeilen.reduce(function(s,z){ return s + (z.diff > 0 ? z.diff : 0); }, 0);
+    const totalMinus = zeilen.reduce(function(s,z){ return s + (z.diff < 0 ? z.diff : 0); }, 0);
     const diffKl = totalDiff > 0 ? 'orange' : (totalDiff < 0 ? 'rot' : 'gruen');
     document.getElementById('ms-zusammen').innerHTML =
       '<div class="ms-karte"><div class="label">Gearbeitet</div><div class="wert">' + formatStunden(gesamtNet) + '</div></div>'
       + '<div class="ms-karte"><div class="label">Soll</div><div class="wert">' + formatStunden(soll) + '</div></div>'
-      + '<div class="ms-karte" style="grid-column:1/-1"><div class="label">' + (totalDiff >= 0 ? 'Überstunden' : 'Minusstunden') + '</div>'
+      + '<div class="ms-karte"><div class="label">Überstunden gesamt</div><div class="wert orange">+' + formatStunden(totalUeber) + '</div></div>'
+      + '<div class="ms-karte"><div class="label">Minusstunden gesamt</div><div class="wert rot">' + formatStunden(Math.abs(totalMinus)) + '</div></div>'
+      + '<div class="ms-karte" style="grid-column:1/-1"><div class="label">Differenz</div>'
       + '<div class="wert ' + diffKl + '">' + (totalDiff > 0 ? '+' : '') + formatStunden(totalDiff) + '</div></div>';
 
     // Tagesliste (neueste zuerst)
