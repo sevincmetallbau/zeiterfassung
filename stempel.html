@@ -999,7 +999,9 @@ async function ladeEigeneEintraege() {
 
   const monat = aktuellerMonat(); // "2026-03"
   const vonDatum = monat + '-01';
-  const bisDatum = monat + '-31';
+  const teile = monat.split('-');
+  const letzterTag = new Date(parseInt(teile[0]), parseInt(teile[1]), 0).getDate();
+  const bisDatum = monat + '-' + String(letzterTag).padStart(2, '0');
 
   try {
     const { data, error } = await sb.from('kundenzeiten')
