@@ -2188,7 +2188,7 @@ async function ladeDetail() {
     rows.forEach(function(r) {
       const isSa = r.dow === 6;
       const isFT = r.dow >= 1 && r.dow <= 5 && !!ftMapDetail[r.datum];
-      const spaet = isSpaet(r.beginn);
+      const spaet = !isSa && !isFT && isSpaet(r.beginn);
       const ueber = r.netto !== null && ((isSa || isFT) ? r.netto > 0 : r.netto > 8);
       const trKlasse = r.unvoll ? 'zeile-warnung' : (isSa ? 'zeile-samstag' : (isFT ? 'zeile-samstag' : ''));
 
@@ -2550,7 +2550,7 @@ async function oeffneMAModal(name) {
     zeilen.reverse();
 
     function zeileTr(z, extraSpalte) {
-      const spaet  = isSpaet(z.beginn);
+      const spaet  = !z.isSa && !z.isFT && isSpaet(z.beginn);
       const ueber  = z.diff !== null && z.diff > 0;
       const minus  = z.diff !== null && z.diff < 0;
       const unvoll = z.beginn && !z.ende;
