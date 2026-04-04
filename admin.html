@@ -1798,7 +1798,9 @@ function monatAendern(delta) {
 }
 
 async function doRefresh() {
-  location.reload(true);
+  // Cache komplett umgehen: Seite mit neuem Timestamp neu laden
+  const url = window.location.pathname + '?_=' + Date.now();
+  window.location.replace(url);
 }
 
 async function ladeAlles() {
