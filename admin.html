@@ -2027,7 +2027,9 @@ async function ladeMonatsübersicht() {
         if (maEintritt && d < maEintritt) continue;
 
         if (eintrag && eintrag.beginn) {
-          const effBeginn = (eintrag.beginn < '07:00' && !eintrag.fruehAkzeptiert) ? '07:00' : eintrag.beginn;
+          // Sa/Feiertag: keine 07:00-Kappung – jede Minute zählt als Überstunde
+          const effBeginn = (isSa || isFeiertag) ? eintrag.beginn
+            : (eintrag.beginn < '07:00' && !eintrag.fruehAkzeptiert) ? '07:00' : eintrag.beginn;
           const netto = nettoStunden(effBeginn, eintrag.ende);
           if (isFeiertag) {
             // Feiertag: wie Samstag – alles Überstunden
