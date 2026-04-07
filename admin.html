@@ -1798,9 +1798,21 @@ function monatAendern(delta) {
 }
 
 async function doRefresh() {
-  // Cache komplett umgehen: Seite mit neuem Timestamp neu laden
-  const url = window.location.pathname + '?_=' + Date.now();
-  window.location.replace(url);
+  // Cache leeren und Daten frisch von Supabase laden (ohne Seiten-Reload)
+  invalidateCache();
+  if ('caches' in window) {
+    var keys = await caches.keys();
+    for (var i = 0; i < keys.length; i++) await caches.delete(keys[i]);
+  }
+  var btn = document.getElementById('refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  await ladeAlles();
+  // Kundenzeiten-Tab auch aktualisieren wenn aktiv
+  var kzTab = document.getElementById('tab-kundenzeiten');
+  if (kzTab && kzTab.classList.contains('aktiv')) ladeKundenzeiten();
+  if (btn) {
+    setTimeout(function() { btn.classList.remove('spinning'); }, 600);
+  }
 }
 
 async function ladeAlles() {
