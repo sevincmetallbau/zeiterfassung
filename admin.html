@@ -1683,13 +1683,13 @@ function ueberNach1610(ende) {
   return endeMin > grenze ? (endeMin - grenze) / 60 : 0;
 }
 
-function nettoStunden(beginn, ende) {
+function nettoStunden(beginn, ende, ohnePause) {
   if (!beginn || !ende) return null;
   const [bh, bm] = beginn.split(':').map(Number);
   const [eh, em] = ende.split(':').map(Number);
   let min = (eh * 60 + em) - (bh * 60 + bm);
   if (min < 0) min += 1440;
-  if (min >= 360) min -= 60;
+  if (!ohnePause && min >= 360) min -= 60;
   return min / 60;
 }
 
@@ -2030,7 +2030,7 @@ async function ladeMonatsübersicht() {
           // Sa/Feiertag: keine 07:00-Kappung – jede Minute zählt als Überstunde
           const effBeginn = (isSa || isFeiertag) ? eintrag.beginn
             : (eintrag.beginn < '07:00' && !eintrag.fruehAkzeptiert) ? '07:00' : eintrag.beginn;
-          const netto = nettoStunden(effBeginn, eintrag.ende);
+          const netto = nettoStunden(effBeginn, eintrag.ende, isSa || isFeiertag);
           if (isFeiertag) {
             // Feiertag: wie Samstag – alles Überstunden
             tageFT++;
@@ -2177,7 +2177,7 @@ async function ladeDetail() {
         const effektivBeginn = (isSaDetail || isFTDetail) ? beginn
           : (beginn && beginn < '07:00' && !fruehAkzeptiert) ? '07:00' : beginn;
 
-        const netto = nettoStunden(effektivBeginn, ende);
+        const netto = nettoStunden(effektivBeginn, ende, isSaDetail || isFTDetail);
         const unvoll = beginn && !ende;
 
         // Filter: nur unvollständige
@@ -2515,8 +2515,8 @@ async function oeffneMAModal(name) {
       if (d > heuteDatum()) continue;
       const eintrag = tagesMap[d] && tagesMap[d][name];
       if (!eintrag || !eintrag.beginn) continue;
-      const netto = nettoStunden(eintrag.beginn, eintrag.ende);
       const isFT = dow >= 1 && dow <= 5 && !!ftMapModal[d];
+      const netto = nettoStunden(eintrag.beginn, eintrag.ende, dow === 6 || isFT);
       if (isFT) {
         // Feiertag: wie Samstag – alles Überstunden
         tageFTModal++;
@@ -2583,8 +2583,8 @@ async function oeffneMAModal(name) {
       const beginn = eintrag ? eintrag.beginn : null;
       const ende   = eintrag ? eintrag.ende   : null;
       const akzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
-      const netto  = nettoStunden(beginn, ende);
       const isFTZeile = dow >= 1 && dow <= 5 && !!ftMapModal[d];
+      const netto  = nettoStunden(beginn, ende, dow === 6 || isFTZeile);
       const isWerktag1610 = dow >= 1 && dow <= 5 && !isFTZeile;
       var diff;
       if (netto === null) {
@@ -2770,7 +2770,7 @@ function renderKalender(name, tagesMap) {
     } else if (zukunft) {
       klasse = 'kal-leer';
     } else if (eintrag && eintrag.beginn) {
-      const netto = nettoStunden(eintrag.beginn, eintrag.ende);
+      const netto = nettoStunden(eintrag.beginn, eintrag.ende, isSa || isFT);
       stdText = netto !== null ? formatH(netto) : '▶';
       const spaet = isSpaet(eintrag.beginn);
       const ueber = netto !== null && ((isSa || isFT) ? netto > 0 : netto > 8);
@@ -3334,9 +3334,9 @@ async function ladeJahresübersicht() {
           if (istZukunft) continue;
 
           if (isFeiertag && stamp && stamp.beginn) {
-            // Feiertag mit Arbeit: wie Samstag – alles Überstunden
+            // Feiertag mit Arbeit: wie Samstag – alles Überstunden, keine Pause
             ftTage++;
-            const netto = nettoStunden(stamp.beginn, stamp.ende);
+            const netto = nettoStunden(stamp.beginn, stamp.ende, true);
             stdFT += netto || 0;
             stdGearbeitet += netto || 0;
           } else if (isWerktag && !isFeiertag) {
@@ -3350,7 +3350,7 @@ async function ladeJahresübersicht() {
             }
           } else if (isSa && stamp && stamp.beginn) {
             saTage++;
-            const netto = nettoStunden(stamp.beginn, stamp.ende);
+            const netto = nettoStunden(stamp.beginn, stamp.ende, true);
             stdGearbeitet += netto || 0;
             stdSaJahr += netto || 0;
           }

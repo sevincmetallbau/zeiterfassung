@@ -509,13 +509,13 @@ function fruehMinuten(beginn) {
   return (7 * 60 - (bh * 60 + bm)) / 60;
 }
 
-function nettoStunden(beginn, ende) {
+function nettoStunden(beginn, ende, ohnePause) {
   if (!beginn || !ende) return null;
   const [bh, bm] = beginn.split(':').map(Number);
   const [eh, em] = ende.split(':').map(Number);
   let min = (eh * 60 + em) - (bh * 60 + bm);
   if (min < 0) min += 1440;
-  if (min >= 360) min -= 60;
+  if (!ohnePause && min >= 360) min -= 60;
   return min / 60;
 }
 
@@ -758,8 +758,8 @@ async function ladeMeineStunden() {
       const beginn = tagesMap[d] ? tagesMap[d].beginn : null;
       const ende   = tagesMap[d] ? tagesMap[d].ende   : null;
       const akzeptiert = tagesMap[d] ? tagesMap[d].fruehAkzeptiert : false;
-      const netto  = nettoStunden(beginn, ende);
       const isFT = dow >= 1 && dow <= 5 && !!ftMap[d];
+      const netto  = nettoStunden(beginn, ende, dow === 6 || isFT);
       const isWerktag1610 = dow >= 1 && dow <= 5 && !isFT;
       var diff;
       if (netto === null) {
@@ -844,7 +844,8 @@ async function ladeStempelStatus() {
 
 function renderStempel(beginn, ende, container) {
   if (beginn && ende) {
-    const netto = nettoStunden(beginn, ende);
+    const heuteDow = new Date().getDay();
+    const netto = nettoStunden(beginn, ende, heuteDow === 6);
     container.innerHTML =
       '<div class="fertig-box">'
       + '<div class="check">&#10003;</div>'
