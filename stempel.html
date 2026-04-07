@@ -378,37 +378,33 @@
 
   <!-- Tab: Kundenzeiten -->
   <div class="haupt-tab-inhalt" id="haupt-tab-kunden" style="width:100%">
-    <div class="kz-section-titel">Neue Kundenzeit erfassen</div>
 
-    <div class="form-group">
-      <label>Kundenname *</label>
-      <input type="text" id="kz-kunde" placeholder="z.B. Müller GmbH, Baustelle Koblenz…" autocomplete="off">
-    </div>
-    <div class="form-row">
+    <!-- Laufender Eintrag (wird per JS eingeblendet) -->
+    <div id="kz-laufend" style="display:none"></div>
+
+    <!-- Start-Formular -->
+    <div id="kz-start-form">
+      <div class="kz-section-titel">Kundenzeit starten</div>
       <div class="form-group">
-        <label>Datum *</label>
-        <input type="date" id="kz-datum">
+        <label>Kundenname *</label>
+        <input type="text" id="kz-kunde" placeholder="z.B. Müller GmbH, Baustelle Koblenz…" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Datum *</label>
+          <input type="date" id="kz-datum">
+        </div>
+        <div class="form-group">
+          <label>Mitarbeiter</label>
+          <input type="text" id="kz-ma-anzeige" readonly style="opacity:0.7">
+        </div>
       </div>
       <div class="form-group">
-        <label>Mitarbeiter</label>
-        <input type="text" id="kz-ma-anzeige" readonly style="opacity:0.7">
+        <label>Tätigkeit</label>
+        <textarea id="kz-taetigkeit" placeholder="Was wurde gemacht? z.B. Geländer montiert, Schweißarbeiten…"></textarea>
       </div>
+      <button class="btn-speichern-kz" id="kz-speichern-btn" onclick="starteKundenzeit()" style="background:var(--green)">&#9654; Kundenzeit starten</button>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Von *</label>
-        <input type="time" id="kz-von">
-      </div>
-      <div class="form-group">
-        <label>Bis *</label>
-        <input type="time" id="kz-bis">
-      </div>
-    </div>
-    <div class="form-group">
-      <label>Tätigkeit</label>
-      <textarea id="kz-taetigkeit" placeholder="Was wurde gemacht? z.B. Geländer montiert, Schweißarbeiten…"></textarea>
-    </div>
-    <button class="btn-speichern-kz" id="kz-speichern-btn" onclick="speichereKundenzeit()">+ Eintrag speichern</button>
     <div class="kz-ok" id="kz-ok">&#10003; Eintrag gespeichert!</div>
 
     <div class="eintraege-header">
@@ -661,7 +657,7 @@ function zeigeHauptTab(tab, btn) {
   document.querySelectorAll('.haupt-tab-inhalt').forEach(function(t) { t.classList.remove('aktiv'); });
   btn.classList.add('aktiv');
   document.getElementById('haupt-tab-' + tab).classList.add('aktiv');
-  if (tab === 'kunden') ladeEigeneEintraege();
+  if (tab === 'kunden') { ladeLaufendeEintraege(); ladeEigeneEintraege(); }
   if (tab === 'stunden') ladeMeineStunden();
   if (tab === 'urlaub') ladeUrlaubAntraege();
 }
@@ -923,44 +919,38 @@ function zeigeBestaetigung(typ, zeitStr) {
 }
 
 // ── KUNDENZEITEN ──
-async function speichereKundenzeit() {
+// ── KUNDENZEIT STARTEN ──
+async function starteKundenzeit() {
   const btn     = document.getElementById('kz-speichern-btn');
   const okEl    = document.getElementById('kz-ok');
   const kunde   = document.getElementById('kz-kunde').value.trim();
   const datum   = document.getElementById('kz-datum').value;
-  const von     = document.getElementById('kz-von').value;
-  const bis     = document.getElementById('kz-bis').value;
   const taetigkeit = document.getElementById('kz-taetigkeit').value.trim();
 
   okEl.style.display = 'none';
 
-  if (!kunde || !datum || !von || !bis) {
+  if (!kunde || !datum) {
     okEl.style.background = '#3d1515';
     okEl.style.borderColor = 'var(--accent)';
     okEl.style.color = '#ff8888';
-    okEl.textContent = 'Bitte Kundenname, Datum, Von und Bis ausfüllen.';
+    okEl.textContent = 'Bitte Kundenname und Datum ausfüllen.';
     okEl.style.display = 'block';
     return;
   }
 
-  const stunden = berechneStunden(von, bis);
-  if (!stunden) {
-    okEl.style.background = '#3d1515';
-    okEl.style.borderColor = 'var(--accent)';
-    okEl.style.color = '#ff8888';
-    okEl.textContent = '"Bis" muss nach "Von" liegen.';
-    okEl.style.display = 'block';
-    return;
-  }
+  // Aktuelle Uhrzeit als Startzeit
+  const jetzt = new Date();
+  const von = String(jetzt.getHours()).padStart(2,'0') + ':' + String(jetzt.getMinutes()).padStart(2,'0');
 
   btn.disabled = true;
-  btn.textContent = 'Speichere…';
+  btn.textContent = 'Starte…';
 
   try {
     const { error } = await sb.from('kundenzeiten').insert({
       mitarbeiter: aktiverMA.name,
-      kunde, datum, von, bis,
-      stunden,
+      kunde, datum, von,
+      bis: null,
+      stunden: null,
       taetigkeit,
       erstellt_von: aktiverMA.name
     });
@@ -968,18 +958,17 @@ async function speichereKundenzeit() {
 
     // Felder leeren
     document.getElementById('kz-kunde').value = '';
-    document.getElementById('kz-von').value = '';
-    document.getElementById('kz-bis').value = '';
     document.getElementById('kz-taetigkeit').value = '';
     document.getElementById('kz-datum').value = heuteDatum();
 
     okEl.style.background = '#1a3a2e';
     okEl.style.borderColor = 'var(--green)';
     okEl.style.color = 'var(--green)';
-    okEl.textContent = '✓ Eintrag gespeichert!';
+    okEl.textContent = '✓ Kundenzeit gestartet um ' + von + ' Uhr!';
     okEl.style.display = 'block';
     setTimeout(function() { okEl.style.display = 'none'; }, 3000);
 
+    ladeLaufendeEintraege();
     ladeEigeneEintraege();
   } catch (err) {
     okEl.style.background = '#3d1515';
@@ -989,7 +978,95 @@ async function speichereKundenzeit() {
     okEl.style.display = 'block';
   } finally {
     btn.disabled = false;
-    btn.textContent = '+ Eintrag speichern';
+    btn.textContent = '▶ Kundenzeit starten';
+  }
+}
+
+// ── LAUFENDE EINTRÄGE PRÜFEN & ANZEIGEN ──
+async function ladeLaufendeEintraege() {
+  const container = document.getElementById('kz-laufend');
+  const startForm = document.getElementById('kz-start-form');
+  if (!aktiverMA) return;
+
+  try {
+    const { data, error } = await sb.from('kundenzeiten')
+      .select('*')
+      .eq('mitarbeiter', aktiverMA.name)
+      .is('bis', null)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      container.style.display = 'none';
+      startForm.style.display = 'block';
+      return;
+    }
+
+    // Laufende Einträge anzeigen, Start-Formular ausblenden
+    startForm.style.display = 'none';
+    container.style.display = 'block';
+    container.innerHTML = '';
+
+    data.forEach(function(e) {
+      const von = e.von ? e.von.substring(0,5) : '–';
+      const jetzt = new Date();
+      const jetztMin = jetzt.getHours() * 60 + jetzt.getMinutes();
+      const vonParts = von.split(':').map(Number);
+      const vonMin = vonParts[0] * 60 + vonParts[1];
+      const laufMin = jetztMin - vonMin;
+      const laufH = Math.floor(laufMin / 60);
+      const laufM = laufMin % 60;
+      const laufText = laufH > 0 ? laufH + 'h ' + laufM + 'min' : laufM + 'min';
+
+      const div = document.createElement('div');
+      div.style.cssText = 'background:rgba(39,174,96,0.12);border:2px solid var(--green);border-radius:12px;padding:16px;margin-bottom:14px';
+      div.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        + '<div style="font-weight:700;font-size:1.05rem;color:var(--green)">&#9654; Läuft gerade</div>'
+        + '<div style="font-size:0.85rem;color:var(--text2)">seit ' + von + ' Uhr (' + laufText + ')</div>'
+        + '</div>'
+        + '<div style="font-weight:700;font-size:1.1rem;margin-bottom:4px">' + escHtml(e.kunde) + '</div>'
+        + '<div style="font-size:0.8rem;color:var(--text2);margin-bottom:4px">' + formatDatumKurz(e.datum) + '</div>'
+        + (e.taetigkeit ? '<div style="font-size:0.85rem;color:var(--text);font-style:italic;margin-bottom:10px">' + escHtml(e.taetigkeit) + '</div>' : '')
+        + '<button onclick="beendeKundenzeit(' + e.id + ')" style="width:100%;background:var(--accent);color:white;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:700;cursor:pointer">&#9632; Kundenzeit beenden</button>';
+      container.appendChild(div);
+    });
+  } catch (err) {
+    container.innerHTML = '<div class="fehler-box">Fehler: ' + err.message + '</div>';
+    container.style.display = 'block';
+  }
+}
+
+// ── KUNDENZEIT BEENDEN ──
+async function beendeKundenzeit(id) {
+  const jetzt = new Date();
+  const bis = String(jetzt.getHours()).padStart(2,'0') + ':' + String(jetzt.getMinutes()).padStart(2,'0');
+
+  try {
+    // Eintrag laden um Von-Zeit zu holen
+    const { data: eintrag, error: loadErr } = await sb.from('kundenzeiten').select('*').eq('id', id).single();
+    if (loadErr) throw loadErr;
+
+    const stunden = berechneStunden(eintrag.von, bis);
+
+    const { error } = await sb.from('kundenzeiten').update({
+      bis: bis,
+      stunden: stunden
+    }).eq('id', id);
+    if (error) throw error;
+
+    const okEl = document.getElementById('kz-ok');
+    okEl.style.background = '#1a3a2e';
+    okEl.style.borderColor = 'var(--green)';
+    okEl.style.color = 'var(--green)';
+    okEl.textContent = '✓ Kundenzeit beendet! ' + eintrag.von.substring(0,5) + ' – ' + bis + ' (' + (stunden ? stunden.toFixed(1) : '?') + ' Std)';
+    okEl.style.display = 'block';
+    setTimeout(function() { okEl.style.display = 'none'; }, 4000);
+
+    ladeLaufendeEintraege();
+    ladeEigeneEintraege();
+  } catch (err) {
+    alert('Fehler beim Beenden: ' + err.message);
   }
 }
 
@@ -1014,18 +1091,21 @@ async function ladeEigeneEintraege() {
       .order('created_at', { ascending: false });
     if (error) throw error;
 
-    if (!data || data.length === 0) {
-      liste.innerHTML = '<div class="lade-text" style="margin-top:0">Noch keine Einträge diesen Monat.</div>';
+    // Nur abgeschlossene Einträge (mit bis) anzeigen
+    const fertige = (data || []).filter(function(e) { return e.bis; });
+
+    if (fertige.length === 0) {
+      liste.innerHTML = '<div class="lade-text" style="margin-top:0">Noch keine abgeschlossenen Einträge diesen Monat.</div>';
       gesamt.textContent = '0 Std.';
       return;
     }
 
     let gesamtStd = 0;
-    data.forEach(function(e) { gesamtStd += (e.stunden || 0); });
+    fertige.forEach(function(e) { gesamtStd += (e.stunden || 0); });
     gesamt.textContent = gesamtStd.toFixed(1) + ' Std.';
 
     liste.innerHTML = '';
-    data.forEach(function(e) { liste.appendChild(erstelleEintragKarte(e)); });
+    fertige.forEach(function(e) { liste.appendChild(erstelleEintragKarte(e)); });
   } catch (err) {
     liste.innerHTML = '<div class="fehler-box">Fehler: ' + err.message + '</div>';
   }
