@@ -2171,8 +2171,11 @@ async function ladeDetail() {
         const ende    = eintrag ? eintrag.ende   : null;
         const manuell = eintrag ? eintrag.manuell : false;
         const fruehAkzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
-        const effektivBeginn = (beginn && beginn < '07:00' && !fruehAkzeptiert) ? '07:00' : beginn;
-
+        const isSaDetail = dow === 6;
+        const isFTDetail = dow >= 1 && dow <= 5 && !!feiertageRLP(state.jahr)[d];
+        // Sa/Feiertag: keine 07:00-Kappung – jede Minute zählt als Überstunde
+        const effektivBeginn = (isSaDetail || isFTDetail) ? beginn
+          : (beginn && beginn < '07:00' && !fruehAkzeptiert) ? '07:00' : beginn;
 
         const netto = nettoStunden(effektivBeginn, ende);
         const unvoll = beginn && !ende;
