@@ -1775,11 +1775,21 @@ async function init() {
   await ladeMitarbeiter();
   ladeAlles();
   generiereQR();
-  // Auto-Refresh alle 30 Sekunden
+  // Auto-Refresh alle 30 Sekunden – aber nur wenn Benutzer nicht aktiv liest
+  var letzteInteraktion = Date.now();
+  document.addEventListener('mousedown', function() { letzteInteraktion = Date.now(); });
+  document.addEventListener('touchstart', function() { letzteInteraktion = Date.now(); });
+  document.addEventListener('scroll', function() { letzteInteraktion = Date.now(); }, true);
+  document.addEventListener('keydown', function() { letzteInteraktion = Date.now(); });
+
   setInterval(function() {
+    // Nicht refreshen wenn Modal offen oder Benutzer in letzten 60 Sek aktiv war
+    var modalOffen = document.querySelector('.modal-bg.offen');
+    var benutzerAktiv = (Date.now() - letzteInteraktion) < 60000;
+    if (modalOffen || benutzerAktiv) return;
+
     invalidateCache();
     ladeAlles();
-    // Kundenzeiten-Tab auch aktualisieren wenn aktiv
     const kzTab = document.getElementById('tab-kundenzeiten');
     if (kzTab && kzTab.classList.contains('aktiv')) ladeKundenzeiten();
   }, 30000);
