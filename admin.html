@@ -1791,7 +1791,7 @@ async function init() {
     invalidateCache();
     ladeAlles();
     const kzTab = document.getElementById('tab-kundenzeiten');
-    if (kzTab && kzTab.classList.contains('aktiv')) ladeKundenzeiten();
+    if (kzTab && kzTab.classList.contains('aktiv')) ladeKundenzeiten(true);
   }, 30000);
 }
 
@@ -3661,10 +3661,12 @@ function initKundenzeiten() {
   ladeKundenzeiten();
 }
 
-async function ladeKundenzeiten() {
+async function ladeKundenzeiten(silent) {
   const monat = document.getElementById('kz-filter-monat').value;
   const tbody = document.getElementById('kz-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px"><span class="spinner-inline"></span> Lade…</td></tr>';
+  if (!silent) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px"><span class="spinner-inline"></span> Lade…</td></tr>';
+  }
 
   const vonDatum = monat + '-01';
   const teile = monat.split('-');
@@ -3679,10 +3681,15 @@ async function ladeKundenzeiten() {
       .order('datum', { ascending: false })
       .order('created_at', { ascending: false });
     if (error) throw error;
-    kzDaten = data || [];
+    var neueDaten = data || [];
+    // Nur neu rendern wenn sich Daten geändert haben
+    if (silent && JSON.stringify(neueDaten) === JSON.stringify(kzDaten)) return;
+    kzDaten = neueDaten;
     renderKundenzeiten();
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--accent);padding:16px">' + err.message + '</td></tr>';
+    if (!silent) {
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--accent);padding:16px">' + err.message + '</td></tr>';
+    }
   }
 }
 
