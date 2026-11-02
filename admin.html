@@ -2016,8 +2016,7 @@ async function ladeMonatsübersicht() {
         const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
         const dow = new Date(state.jahr, state.monat - 1, t).getDay();
         const eintrag = tagesMap[d] && tagesMap[d][ma.name];
-        const isSa = dow === 6;
-        const isSo = dow === 0;
+        const isSa = dow === 6 || dow === 0; // Sonntag wie Samstag: alles Überstunden
         const isWerktag = dow >= 1 && dow <= 5;
         const isFeiertag = isWerktag && !!ftMap[d];
 
@@ -2162,17 +2161,16 @@ async function ladeDetail() {
     for (let t = 1; t <= anzTage; t++) {
       const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
       const dow = new Date(state.jahr, state.monat - 1, t).getDay();
-      if (dow === 0) continue; // Sonntag überspringen
-
       const maListe = filterMA ? [{ name: filterMA }] : state.alleMitarbeiter;
 
       maListe.forEach(function(ma) {
         const eintrag = tagesMap[d] && tagesMap[d][ma.name];
+        if (dow === 0 && !(eintrag && eintrag.beginn)) return; // Sonntag nur mit Stempel
         const beginn  = eintrag ? eintrag.beginn : null;
         const ende    = eintrag ? eintrag.ende   : null;
         const manuell = eintrag ? eintrag.manuell : false;
         const fruehAkzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
-        const isSaDetail = dow === 6;
+        const isSaDetail = dow === 6 || dow === 0;
         const isFTDetail = dow >= 1 && dow <= 5 && !!feiertageRLP(state.jahr)[d];
         // Sa/Feiertag: keine 07:00-Kappung – jede Minute zählt als Überstunde
         const effektivBeginn = (isSaDetail || isFTDetail) ? beginn
@@ -2206,7 +2204,7 @@ async function ladeDetail() {
     tbody.innerHTML = '';
     const ftMapDetail = feiertageRLP(state.jahr);
     rows.forEach(function(r) {
-      const isSa = r.dow === 6;
+      const isSa = r.dow === 6 || r.dow === 0;
       const isFT = r.dow >= 1 && r.dow <= 5 && !!ftMapDetail[r.datum];
       const spaet = !isSa && !isFT && isSpaet(r.beginn);
       const ueber = r.netto !== null && ((isSa || isFT) ? r.netto > 0 : r.netto > 8);
@@ -2517,13 +2515,13 @@ async function oeffneMAModal(name) {
       const eintrag = tagesMap[d] && tagesMap[d][name];
       if (!eintrag || !eintrag.beginn) continue;
       const isFT = dow >= 1 && dow <= 5 && !!ftMapModal[d];
-      const netto = nettoStunden(eintrag.beginn, eintrag.ende, dow === 6 || isFT);
+      const netto = nettoStunden(eintrag.beginn, eintrag.ende, dow === 6 || dow === 0 || isFT);
       if (isFT) {
         // Feiertag: wie Samstag – alles Überstunden
         tageFTModal++;
         gesamtH += netto || 0;
         if (netto !== null && netto > 0) ueberH += netto;
-      } else if (dow === 6) {
+      } else if (dow === 6 || dow === 0) {
         tageSa++;
         gesamtH += netto || 0;
         if (netto !== null && netto > 0) ueberH += netto;
@@ -2579,13 +2577,14 @@ async function oeffneMAModal(name) {
     for (let t = 1; t <= anzTage; t++) {
       const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
       const dow = new Date(state.jahr, state.monat - 1, t).getDay();
-      if (dow === 0 || d > heuteDatum()) continue;
+      if (d > heuteDatum()) continue;
       const eintrag = tagesMap[d] && tagesMap[d][name];
+      if (dow === 0 && !(eintrag && eintrag.beginn)) continue; // Sonntag nur mit Stempel
       const beginn = eintrag ? eintrag.beginn : null;
       const ende   = eintrag ? eintrag.ende   : null;
       const akzeptiert = eintrag ? eintrag.fruehAkzeptiert : false;
       const isFTZeile = dow >= 1 && dow <= 5 && !!ftMapModal[d];
-      const netto  = nettoStunden(beginn, ende, dow === 6 || isFTZeile);
+      const netto  = nettoStunden(beginn, ende, dow === 6 || dow === 0 || isFTZeile);
       const isWerktag1610 = dow >= 1 && dow <= 5 && !isFTZeile;
       var diff;
       if (netto === null) {
@@ -2599,7 +2598,7 @@ async function oeffneMAModal(name) {
         // Sa/Feiertag: alles Überstunden
         diff = +netto.toFixed(2);
       }
-      zeilen.push({ d, dow, beginn, ende, netto, diff, isSa: dow === 6, isFT: isFTZeile });
+      zeilen.push({ d, dow, beginn, ende, netto, diff, isSa: dow === 6 || dow === 0, isFT: isFTZeile });
     }
     zeilen.reverse();
 
@@ -2620,7 +2619,7 @@ async function oeffneMAModal(name) {
       const diffKl  = z.diff > 0 ? 'td-orange' : (z.diff < 0 ? 'td-rot' : '');
       const tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + z.d.split('-').reverse().join('.') + (z.isSa ? ' <span style="font-size:0.75rem;color:var(--blue)">[Sa]</span>' : '') + (z.isFT ? ' <span style="font-size:0.75rem;color:#56d48a">[FT]</span>' : '') + '</td>'
+        '<td>' + z.d.split('-').reverse().join('.') + (z.isSa ? ' <span style="font-size:0.75rem;color:var(--blue)">' + (z.dow === 0 ? '[So]' : '[Sa]') + '</span>' : '') + (z.isFT ? ' <span style="font-size:0.75rem;color:#56d48a">[FT]</span>' : '') + '</td>'
         + '<td>' + tagName(z.dow) + '</td>'
         + '<td class="' + (spaet ? 'td-rot' : '') + '">' + (z.beginn || '–') + '</td>'
         + '<td>' + (z.ende || '–') + '</td>'
@@ -2732,8 +2731,8 @@ function renderKalender(name, tagesMap) {
   for (let t = 1; t <= anzTage; t++) {
     const d = state.jahr + '-' + pad(state.monat) + '-' + pad(t);
     const dow = new Date(state.jahr, state.monat - 1, t).getDay();
-    const isSa = dow === 6;
     const isSo = dow === 0;
+    const isSa = dow === 6 || isSo; // Sonntag wie Samstag
     const isFT = dow >= 1 && dow <= 5 && !!ftMapKal[d];
     const zukunft = d > heuteDatum();
     const eintrag = tagesMap[d] && tagesMap[d][name];
@@ -2746,7 +2745,7 @@ function renderKalender(name, tagesMap) {
     let stdText = '';
     let tooltip = '';
 
-    if (isSo) {
+    if (isSo && !(eintrag && eintrag.beginn)) {
       klasse = 'kal-wochenende';
     } else if (isFT && !eintrag) {
       // Feiertag ohne Arbeit
@@ -3311,7 +3310,7 @@ async function ladeJahresübersicht() {
           const d = state.jahresJahr + '-' + pad(m) + '-' + pad(t);
           const dow = new Date(state.jahresJahr, m - 1, t).getDay();
           const isWerktag = dow >= 1 && dow <= 5;
-          const isSa = dow === 6;
+          const isSa = dow === 6 || dow === 0;
           const isFeiertag = isWerktag && !!ftMapJahr[d];
           const istZukunft = d > heuteDatum();
 

@@ -760,12 +760,12 @@ async function ladeMeineStunden() {
       const d = msJahr + '-' + pad(msMonat) + '-' + pad(t);
       if (d > heute) break;
       const dow = new Date(msJahr, msMonat - 1, t).getDay();
-      if (dow === 0) continue; // Sonntag überspringen
+      if (dow === 0 && !(tagesMap[d] && tagesMap[d].beginn)) continue; // Sonntag nur mit Stempel
       const beginn = tagesMap[d] ? tagesMap[d].beginn : null;
       const ende   = tagesMap[d] ? tagesMap[d].ende   : null;
       const akzeptiert = tagesMap[d] ? tagesMap[d].fruehAkzeptiert : false;
       const isFT = dow >= 1 && dow <= 5 && !!ftMap[d];
-      const netto  = nettoStunden(beginn, ende, dow === 6 || isFT);
+      const netto  = nettoStunden(beginn, ende, dow === 6 || dow === 0 || isFT);
       const isWerktag1610 = dow >= 1 && dow <= 5 && !isFT;
       var diff;
       if (netto === null) {
@@ -851,7 +851,7 @@ async function ladeStempelStatus() {
 function renderStempel(beginn, ende, container) {
   if (beginn && ende) {
     const heuteDow = new Date().getDay();
-    const netto = nettoStunden(beginn, ende, heuteDow === 6);
+    const netto = nettoStunden(beginn, ende, heuteDow === 6 || heuteDow === 0);
     container.innerHTML =
       '<div class="fertig-box">'
       + '<div class="check">&#10003;</div>'
